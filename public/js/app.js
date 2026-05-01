@@ -78,8 +78,7 @@ function getEffectivePrice(product, quantity) {
     const tier = product.scaled_prices
         .filter(t => t.quantity <= quantity)
         .sort((a, b) => b.quantity - a.quantity)[0];
-    // discount_percentage almacena el margen % del tier
-    return tier ? product.cost * (1 + tier.discount_percentage / 100) : base;
+    return tier ? base * (1 - tier.discount_percentage / 100) : base;
 }
 
 // Mostrador (POS) Logic
@@ -121,7 +120,8 @@ function renderPOSProducts(products) {
 
         const tiersHtml = (p.scaled_prices && p.scaled_prices.length > 0)
             ? p.scaled_prices.map(t => {
-                const tp = p.cost * (1 + t.discount_percentage / 100);
+                const base = p.cost * (1 + p.profit_margin / 100);
+                const tp = base * (1 - t.discount_percentage / 100);
                 return `${t.quantity}u: $${tp.toFixed(2)}`;
               }).join(' · ')
             : '';
@@ -345,12 +345,14 @@ function updateTierField(index, field, value) {
 
 function updateTierPreview(index) {
     const cost = parseFloat(document.getElementById('product-cost').value) || 0;
-    const input = document.getElementById(`tier-margin-${index}`);
+    const margin = parseFloat(document.getElementById('product-margin').value) || 0;
+    const basePrice = cost * (1 + margin / 100);
+    const input = document.getElementById(`tier-disc-${index}`);
     const preview = document.getElementById(`tier-preview-${index}`);
     if (!input || !preview) return;
-    const m = parseFloat(input.value);
-    preview.textContent = (!isNaN(m) && m >= 0 && cost > 0)
-        ? `→ $${(cost * (1 + m / 100)).toFixed(2)}`
+    const d = parseFloat(input.value);
+    preview.textContent = (!isNaN(d) && d >= 0 && basePrice > 0)
+        ? `→ $${(basePrice * (1 - d / 100)).toFixed(2)}`
         : '';
 }
 
@@ -360,11 +362,13 @@ function renderPriceTiers() {
     if (!container) return;
 
     const cost = parseFloat(document.getElementById('product-cost').value) || 0;
+    const margin = parseFloat(document.getElementById('product-margin').value) || 0;
+    const basePrice = cost * (1 + margin / 100);
 
     container.innerHTML = '';
     currentPriceTiers.forEach((tier, i) => {
-        const m = parseFloat(tier.discount_percentage);
-        const scaledPrice = (!isNaN(m) && m >= 0 && cost > 0) ? cost * (1 + m / 100) : null;
+        const d = parseFloat(tier.discount_percentage);
+        const scaledPrice = (!isNaN(d) && d >= 0 && basePrice > 0) ? basePrice * (1 - d / 100) : null;
 
         const row = document.createElement('div');
         row.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;';
@@ -374,10 +378,10 @@ function renderPriceTiers() {
                 style="width: 65px; padding: 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit; font-size: 0.85rem; text-align: center;"
                 onchange="updateTierField(${i}, 'quantity', this.value)">
             <span style="font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;">u. —</span>
-            <input type="number" id="tier-margin-${i}" min="0" max="999" step="0.01" value="${tier.discount_percentage}" placeholder="%"
+            <input type="number" id="tier-disc-${i}" min="0" max="99.99" step="0.01" value="${tier.discount_percentage}" placeholder="%"
                 style="width: 65px; padding: 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit; font-size: 0.85rem; text-align: center;"
                 oninput="updateTierPreview(${i})" onchange="updateTierField(${i}, 'discount_percentage', this.value)">
-            <span style="font-size: 0.82rem; color: var(--text-muted);">% margen</span>
+            <span style="font-size: 0.82rem; color: var(--text-muted);">% desc.</span>
             <span id="tier-preview-${i}" style="font-size: 0.85rem; color: var(--accent); font-weight: 600; min-width: 70px;">
                 ${scaledPrice !== null ? '→ $' + scaledPrice.toFixed(2) : ''}
             </span>
@@ -470,7 +474,13 @@ async function saveProduct(e) {
         currentPriceTiers = [];
         document.getElementById('product-modal').classList.add('hidden');
         loadProductsAdmin();
-        initPOS();
+        await initPOS();
+        // Actualizar productos del carrito con los datos recién guardados
+        currentCart = currentCart.map(item => {
+            const updated = currentProducts.find(p => p.id === item.product.id);
+            return updated ? { ...item, product: updated } : item;
+        });
+        renderCart();
 
     } catch (err) {
         alert("Error al guardar: " + err.message);
