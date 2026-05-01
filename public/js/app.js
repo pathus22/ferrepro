@@ -104,10 +104,56 @@ async function initPOS() {
     });
 }
 
+function showProductInfo(p) {
+    const base = p.cost * (1 + p.profit_margin / 100);
+    const tiersRows = (p.scaled_prices && p.scaled_prices.length > 0)
+        ? p.scaled_prices.map(t => {
+            const tp = base * (1 - t.discount_percentage / 100);
+            return `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding: 0.2rem 0;">
+                        <span style="color:var(--text-muted);">A partir de ${t.quantity} u.</span>
+                        <span><strong>$${tp.toFixed(2)}</strong> <span style="color:var(--text-muted);">(${t.discount_percentage}% desc.)</span></span>
+                    </div>`;
+          }).join('')
+        : '<span style="color:var(--text-muted); font-size:0.85rem;">Sin precios escalonados</span>';
+
+    const row = (label, value) => value
+        ? `<div style="display:flex; justify-content:space-between; margin-bottom:0.4rem; font-size:0.88rem;">
+               <span style="color:var(--text-muted);">${label}</span>
+               <span style="text-align:right; max-width:60%;">${value}</span>
+           </div>`
+        : '';
+
+    document.getElementById('product-info-content').innerHTML = `
+        <h2 style="margin-bottom:0.25rem; font-size:1.1rem;">${p.name}</h2>
+        <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:1.2rem;">Cód. ${p.code}</p>
+        <div style="border-bottom:1px solid var(--border-glass); margin-bottom:0.8rem; padding-bottom:0.8rem;">
+            ${row('Marca', p.brand)}
+            ${row('Categoría', p.category)}
+            ${row('Proveedor', p.provider)}
+            ${row('Otros', p.others)}
+        </div>
+        <div style="border-bottom:1px solid var(--border-glass); margin-bottom:0.8rem; padding-bottom:0.8rem;">
+            ${row('Costo', '$' + p.cost.toFixed(2))}
+            ${row('Margen', p.profit_margin + '%')}
+            ${row('Precio de venta', '<strong>$' + base.toFixed(2) + '</strong>')}
+            ${row('Unidad de venta', formatSaleUnit(p))}
+        </div>
+        <div style="border-bottom:1px solid var(--border-glass); margin-bottom:0.8rem; padding-bottom:0.8rem;">
+            ${row('Stock', p.stock + ' u.')}
+            ${row('Stock mínimo', p.min_stock ? p.min_stock + ' u.' : null)}
+        </div>
+        <div>
+            <div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:0.4rem;">Precios por cantidad</div>
+            ${tiersRows}
+        </div>
+    `;
+    document.getElementById('product-info-modal').classList.remove('hidden');
+}
+
 function renderPOSProducts(products) {
     const container = document.getElementById('pos-products');
     container.innerHTML = '';
-    
+
     if(products.length === 0) {
         container.innerHTML = '<p style="color:var(--text-muted)">No se encontraron productos.</p>';
         return;
@@ -128,19 +174,25 @@ function renderPOSProducts(products) {
 
         card.innerHTML = `
             <div style="display: flex; justify-content: space-between; width: 100%;">
-                <div style="display: flex; flex-direction: column;">
+                <div style="display: flex; flex-direction: column; flex: 1;">
                     <span class="product-code">Cód. ${p.code} | Marca: ${p.brand || '-'}</span>
                     <span class="product-name" style="margin: 0.25rem 0; font-size: 1.1rem;">${p.name}</span>
                     <span style="font-size: 0.8rem; color: var(--text-muted);">Stock: ${p.stock} | Cat: ${p.category || '-'} | Prov: ${p.provider || '-'}</span>
                     ${tiersHtml ? `<span style="font-size: 0.78rem; color: var(--accent); margin-top: 0.2rem;">${tiersHtml}</span>` : ''}
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 0.25rem;">
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 0.25rem; margin-left: 0.75rem;">
+                    <button class="btn-icon" id="info-btn-${p.id}" style="width: 24px; height: 24px; font-size: 0.9rem; color: var(--text-muted);" title="Ver detalle"><i class="ph ph-info"></i></button>
                     <span class="product-price">$${price.toFixed(2)}</span>
                     <span style="font-size: 0.78rem; color: var(--text-muted);">${formatSaleUnit(p)}</span>
                 </div>
             </div>
         `;
         card.onclick = () => { addToCart(p); };
+        // Info button stops propagation so it doesn't add to cart
+        card.querySelector(`#info-btn-${p.id}`).addEventListener('click', (e) => {
+            e.stopPropagation();
+            showProductInfo(p);
+        });
         container.appendChild(card);
     });
 }
@@ -184,6 +236,8 @@ function renderCart() {
         `;
         subtotalEl.textContent = '$0.00';
         totalEl.textContent = '$0.00';
+        const discountAmountEl = document.getElementById('cart-discount-amount');
+        if (discountAmountEl) discountAmountEl.textContent = '';
         return;
     }
     
@@ -217,8 +271,26 @@ function renderCart() {
         container.appendChild(div);
     });
     
+    // Descuento global del carrito
+    const discountCheck = document.getElementById('cart-discount-check');
+    const discountInput = document.getElementById('cart-discount-pct');
+    const discountAmountEl = document.getElementById('cart-discount-amount');
+
+    const discountEnabled = discountCheck?.checked || false;
+    if (discountInput) discountInput.disabled = !discountEnabled;
+
+    const discountPct = discountEnabled ? (parseFloat(discountInput?.value) || 0) : 0;
+    const discountAmount = total * discountPct / 100;
+    const finalTotal = total - discountAmount;
+
+    if (discountAmountEl) {
+        discountAmountEl.textContent = discountEnabled && discountAmount > 0
+            ? `-$${discountAmount.toFixed(2)}`
+            : '';
+    }
+
     subtotalEl.textContent = `$${total.toFixed(2)}`;
-    totalEl.textContent = `$${total.toFixed(2)}`;
+    totalEl.textContent = `$${finalTotal.toFixed(2)}`;
 }
 
 

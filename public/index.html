@@ -131,6 +131,19 @@
                                 <span>Subtotal</span>
                                 <span id="cart-subtotal">$0.00</span>
                             </div>
+                            <div class="summary-row" style="align-items: center; padding: 0.4rem 0;">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.9rem;">
+                                    <input type="checkbox" id="cart-discount-check" onchange="renderCart()" style="width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer;">
+                                    <span>Descuento</span>
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <input type="number" id="cart-discount-pct" min="0" max="100" step="0.1" placeholder="0"
+                                        style="width: 52px; padding: 0.25rem 0.4rem; border-radius: 5px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit; font-size: 0.85rem; text-align: center;"
+                                        oninput="renderCart()" disabled>
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;">%</span>
+                                    <span id="cart-discount-amount" style="color: #ef4444; font-size: 0.85rem; min-width: 58px; text-align: right;"></span>
+                                </div>
+                            </div>
                             <div class="summary-row total">
                                 <span>Total</span>
                                 <span id="cart-total">$0.00</span>
@@ -330,6 +343,14 @@
                     <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- PRODUCT INFO MODAL -->
+    <div id="product-info-modal" class="modal-overlay hidden">
+        <div class="modal-content glass" style="max-width: 440px; text-align: left;">
+            <button class="close-btn" onclick="document.getElementById('product-info-modal').classList.add('hidden')"><i class="ph ph-x"></i></button>
+            <div id="product-info-content"></div>
         </div>
     </div>
 
