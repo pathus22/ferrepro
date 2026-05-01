@@ -236,12 +236,23 @@ body {
     align-items: center;
 }
 
+/* POS view: ocupa exactamente el viewport disponible bajo la topbar */
+#view-pos {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 70px);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
 /* POS Layout */
 .pos-layout {
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 2rem;
-    height: calc(100vh - 200px);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .pos-main {
@@ -249,6 +260,7 @@ body {
     flex-direction: column;
     gap: 1.5rem;
     height: 100%;
+    min-height: 0;
 }
 
 .search-bar {
@@ -331,6 +343,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
 }
 
 .pos-sidebar h2 {
