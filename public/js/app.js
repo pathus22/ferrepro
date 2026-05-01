@@ -58,7 +58,7 @@ async function fetchProducts() {
 }
 
 // Palabras que son nombres de unidad, no de presentación (para filtrar datos viejos en el campo units)
-const UNIT_WORDS = new Set(['unidad', 'unidades', 'metro', 'metros', 'litro', 'litros', 'kg', 'par', 'rollo', 'pliego', 'tira', 'caja']);
+const UNIT_WORDS = new Set(['unidad', 'unidades', 'metro', 'metros', 'litro', 'litros', 'kg', 'par', 'rollo', 'pliego', 'tira']);
 
 // Formatea la unidad de venta: "Caja x10 Unidades", "x1 Unidad", "x10 Metros", etc.
 function formatSaleUnit(p) {
