@@ -272,8 +272,31 @@
                         <input type="text" id="product-provider" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
                     </div>
                     <div style="flex: 1;">
-                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Unidades</label>
-                        <input type="text" id="product-units" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Presentación <span style="font-size:0.8rem;">(opcional)</span></label>
+                        <input type="text" id="product-units" placeholder="Caja, Bolsa, Pack…" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="flex: 1;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Cantidad de venta</label>
+                        <input type="number" id="product-sale-qty" min="1" value="1" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Unidad</label>
+                        <input type="text" id="product-sale-unit" list="unit-options" placeholder="unidades" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                        <datalist id="unit-options">
+                            <option value="unidad">
+                            <option value="unidades">
+                            <option value="metro">
+                            <option value="metros">
+                            <option value="litro">
+                            <option value="litros">
+                            <option value="kg">
+                            <option value="par">
+                            <option value="rollo">
+                            <option value="pliego">
+                            <option value="tira">
+                        </datalist>
                     </div>
                 </div>
                 <div style="margin-bottom: 1rem;">

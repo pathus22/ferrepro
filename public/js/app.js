@@ -57,6 +57,14 @@ async function fetchProducts() {
     }
 }
 
+// Formatea la unidad de venta del producto: "Caja x50 unidades", "x1 metro", etc.
+function formatSaleUnit(p) {
+    const qty = p.sale_qty || 1;
+    const unit = p.sale_unit || 'unidades';
+    const presentation = (p.units || '').trim();
+    return presentation ? `${presentation} x${qty} ${unit}` : `x${qty} ${unit}`;
+}
+
 // Calcula el precio efectivo según cantidad (aplica el tier más alto que corresponda)
 function getEffectivePrice(product, quantity) {
     const base = product.cost * (1 + product.profit_margin / 100);
@@ -120,8 +128,9 @@ function renderPOSProducts(products) {
                     <span style="font-size: 0.8rem; color: var(--text-muted);">Stock: ${p.stock} | Cat: ${p.category || '-'} | Prov: ${p.provider || '-'}</span>
                     ${tiersHtml ? `<span style="font-size: 0.78rem; color: var(--accent); margin-top: 0.2rem;">${tiersHtml}</span>` : ''}
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center;">
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 0.25rem;">
                     <span class="product-price">$${price.toFixed(2)}</span>
+                    <span style="font-size: 0.78rem; color: var(--text-muted);">${formatSaleUnit(p)}</span>
                 </div>
             </div>
         `;
@@ -189,7 +198,7 @@ function renderCart() {
             <div style="flex: 1;">
                 <div style="font-weight: 600; font-size: 0.95rem;">${item.product.name}</div>
                 <div style="color: var(--text-muted); font-size: 0.8rem;">
-                    $${price.toFixed(2)} c/u
+                    $${price.toFixed(2)} · ${formatSaleUnit(item.product)}
                     ${hasDiscount ? `<span style="color: var(--accent); margin-left: 0.3rem; font-size: 0.75rem;">▼ precio x cant.</span>` : ''}
                 </div>
             </div>
@@ -394,11 +403,15 @@ function showProductModal(product = null) {
         document.getElementById('product-provider').value = product.provider || '';
         document.getElementById('product-units').value = product.units || '';
         document.getElementById('product-others').value = product.others || '';
+        document.getElementById('product-sale-qty').value = product.sale_qty || 1;
+        document.getElementById('product-sale-unit').value = product.sale_unit || 'unidades';
         currentPriceTiers = (product.scaled_prices || []).map(t => ({ ...t }));
     } else {
         title.textContent = 'Nuevo Producto';
         form.reset();
         document.getElementById('product-id').value = '';
+        document.getElementById('product-sale-qty').value = 1;
+        document.getElementById('product-sale-unit').value = 'unidades';
         currentPriceTiers = [];
     }
 
@@ -420,7 +433,9 @@ async function saveProduct(e) {
         brand: document.getElementById('product-brand').value,
         provider: document.getElementById('product-provider').value,
         units: document.getElementById('product-units').value,
-        others: document.getElementById('product-others').value
+        others: document.getElementById('product-others').value,
+        sale_qty: parseInt(document.getElementById('product-sale-qty').value) || 1,
+        sale_unit: document.getElementById('product-sale-unit').value || 'unidades'
     };
 
     try {

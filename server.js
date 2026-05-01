@@ -29,9 +29,9 @@ app.get('/api/products', (req, res) => {
 // Crear un producto
 app.post('/api/products', (req, res) => {
     try {
-        const { code, name, cost, profit_margin, stock, category, provider, brand, units, others } = req.body;
-        const stmt = db.prepare('INSERT INTO products (code, name, cost, profit_margin, stock, category, provider, brand, units, others) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        const result = stmt.run(code, name, cost || 0, profit_margin || 50, stock || 0, category || '', provider || '', brand || '', units || '', others || '');
+        const { code, name, cost, profit_margin, stock, category, provider, brand, units, others, sale_qty, sale_unit } = req.body;
+        const stmt = db.prepare('INSERT INTO products (code, name, cost, profit_margin, stock, category, provider, brand, units, others, sale_qty, sale_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        const result = stmt.run(code, name, cost || 0, profit_margin || 50, stock || 0, category || '', provider || '', brand || '', units || '', others || '', sale_qty || 1, sale_unit || 'unidades');
         res.json({ id: result.lastInsertRowid, message: 'Producto creado' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -41,9 +41,9 @@ app.post('/api/products', (req, res) => {
 // Editar un producto
 app.put('/api/products/:id', (req, res) => {
     try {
-        const { code, name, cost, profit_margin, stock, category, provider, brand, units, others } = req.body;
-        const stmt = db.prepare('UPDATE products SET code = ?, name = ?, cost = ?, profit_margin = ?, stock = ?, category = ?, provider = ?, brand = ?, units = ?, others = ? WHERE id = ?');
-        stmt.run(code, name, cost, profit_margin, stock, category, provider, brand, units, others, req.params.id);
+        const { code, name, cost, profit_margin, stock, category, provider, brand, units, others, sale_qty, sale_unit } = req.body;
+        const stmt = db.prepare('UPDATE products SET code = ?, name = ?, cost = ?, profit_margin = ?, stock = ?, category = ?, provider = ?, brand = ?, units = ?, others = ?, sale_qty = ?, sale_unit = ? WHERE id = ?');
+        stmt.run(code, name, cost, profit_margin, stock, category, provider, brand, units, others, sale_qty || 1, sale_unit || 'unidades', req.params.id);
         res.json({ message: 'Producto actualizado' });
     } catch (err) {
         res.status(500).json({ error: err.message });

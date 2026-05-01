@@ -76,4 +76,8 @@ function initDB() {
 
 initDB();
 
+// Migraciones: columnas agregadas después del schema inicial
+try { db.exec(`ALTER TABLE products ADD COLUMN sale_qty INTEGER DEFAULT 1`); } catch(e) {}
+try { db.exec(`ALTER TABLE products ADD COLUMN sale_unit TEXT DEFAULT 'unidades'`); } catch(e) {}
+
 module.exports = db;
