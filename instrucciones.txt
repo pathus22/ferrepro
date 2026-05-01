@@ -13,7 +13,7 @@ INSTALACIÓN (solo la primera vez)
 --------------------------------------------------------------------------------
 
   1. Descargar el proyecto
-     - Ir a: https://github.com/patitoflauta/ferrepro
+     - Ir a: https://github.com/pathus22/ferrepro
      - Hacer click en el botón verde "Code" → "Download ZIP"
      - Extraer el ZIP en cualquier carpeta (ej: C:\FerrePro)
 
