@@ -159,6 +159,11 @@
                     </div>
                 </header>
                 
+                <div class="search-bar" style="margin-bottom: 1rem;">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="admin-search" placeholder="Buscar por código, descripción, marca o proveedor..." autocomplete="off" oninput="filterProductsAdmin(this.value)">
+                </div>
+
                 <div class="card glass table-wrapper">
                     <table class="data-table">
                         <thead>
@@ -244,11 +249,11 @@
                 <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
                     <div style="flex: 1;">
                         <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Costo ($)</label>
-                        <input type="number" id="product-cost" step="0.01" required class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                        <input type="number" id="product-cost" step="0.01" required class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;" oninput="renderPriceTiers()">
                     </div>
                     <div style="flex: 1;">
                         <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Margen (%)</label>
-                        <input type="number" id="product-margin" step="0.01" required class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                        <input type="number" id="product-margin" step="0.01" required class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;" oninput="renderPriceTiers()">
                     </div>
                 </div>
                 <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
@@ -278,6 +283,19 @@
                 <div style="margin-bottom: 1.5rem;">
                     <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Stock Inicial</label>
                     <input type="number" id="product-stock" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                </div>
+                <!-- Precios Escalonados -->
+                <div style="margin-bottom: 1.5rem; border-top: 1px solid var(--border-glass); padding-top: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <label style="color: var(--text-muted); font-size: 0.9rem;">Precios por Cantidad</label>
+                        <button type="button" id="btn-add-tier" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;" onclick="addPriceTier()">
+                            <i class="ph ph-plus"></i> Agregar nivel
+                        </button>
+                    </div>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; margin-top: 0;">
+                        Margen % que reemplaza al margen por unidad. Se aplica automáticamente en el POS según cantidad.
+                    </p>
+                    <div id="price-tiers-container"></div>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 1rem;">
                     <button type="button" class="btn btn-secondary" onclick="document.getElementById('product-modal').classList.add('hidden')">Cancelar</button>

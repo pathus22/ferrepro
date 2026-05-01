@@ -57,6 +57,17 @@ async function fetchProducts() {
     }
 }
 
+// Calcula el precio efectivo según cantidad (aplica el tier más alto que corresponda)
+function getEffectivePrice(product, quantity) {
+    const base = product.cost * (1 + product.profit_margin / 100);
+    if (!product.scaled_prices || product.scaled_prices.length === 0) return base;
+    const tier = product.scaled_prices
+        .filter(t => t.quantity <= quantity)
+        .sort((a, b) => b.quantity - a.quantity)[0];
+    // discount_percentage almacena el margen % del tier
+    return tier ? product.cost * (1 + tier.discount_percentage / 100) : base;
+}
+
 // Mostrador (POS) Logic
 let currentProducts = [];
 
@@ -92,24 +103,29 @@ function renderPOSProducts(products) {
     products.forEach(p => {
         const card = document.createElement('div');
         card.className = 'product-card';
-        // Calculamos un precio venta de ejemplo (Costo + Margen) + IVA aprox
-        const price = p.cost + (p.cost * p.profit_margin / 100);
-        
+        const price = getEffectivePrice(p, 1);
+
+        const tiersHtml = (p.scaled_prices && p.scaled_prices.length > 0)
+            ? p.scaled_prices.map(t => {
+                const tp = p.cost * (1 + t.discount_percentage / 100);
+                return `${t.quantity}u: $${tp.toFixed(2)}`;
+              }).join(' · ')
+            : '';
+
         card.innerHTML = `
             <div style="display: flex; justify-content: space-between; width: 100%;">
                 <div style="display: flex; flex-direction: column;">
                     <span class="product-code">Cód. ${p.code} | Marca: ${p.brand || '-'}</span>
                     <span class="product-name" style="margin: 0.25rem 0; font-size: 1.1rem;">${p.name}</span>
                     <span style="font-size: 0.8rem; color: var(--text-muted);">Stock: ${p.stock} | Cat: ${p.category || '-'} | Prov: ${p.provider || '-'}</span>
+                    ${tiersHtml ? `<span style="font-size: 0.78rem; color: var(--accent); margin-top: 0.2rem;">${tiersHtml}</span>` : ''}
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center;">
                     <span class="product-price">$${price.toFixed(2)}</span>
                 </div>
             </div>
         `;
-        card.onclick = () => {
-            addToCart(p);
-        };
+        card.onclick = () => { addToCart(p); };
         container.appendChild(card);
     });
 }
@@ -160,17 +176,22 @@ function renderCart() {
     let total = 0;
     
     currentCart.forEach(item => {
-        const price = item.product.cost + (item.product.cost * item.product.profit_margin / 100);
+        const price = getEffectivePrice(item.product, item.quantity);
+        const basePrice = item.product.cost * (1 + item.product.profit_margin / 100);
+        const hasDiscount = price < basePrice - 0.001;
         const itemTotal = price * item.quantity;
         total += itemTotal;
-        
+
         const div = document.createElement('div');
         div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-glass);';
-        
+
         div.innerHTML = `
             <div style="flex: 1;">
                 <div style="font-weight: 600; font-size: 0.95rem;">${item.product.name}</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">$${price.toFixed(2)} c/u</div>
+                <div style="color: var(--text-muted); font-size: 0.8rem;">
+                    $${price.toFixed(2)} c/u
+                    ${hasDiscount ? `<span style="color: var(--accent); margin-left: 0.3rem; font-size: 0.75rem;">▼ precio x cant.</span>` : ''}
+                </div>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <input type="number" value="${item.quantity}" min="0" style="width: 50px; padding: 0.25rem; border-radius: 4px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass); color: white; text-align: center;" onchange="updateCartItemQuantity(${item.product.id}, this.value)">
@@ -187,15 +208,46 @@ function renderCart() {
 
 
 // Administración de Productos Logic
+let allProductsAdmin = [];
+
 async function loadProductsAdmin() {
     const tbody = document.getElementById('admin-products-tbody');
-    tbody.innerHTML = '<tr><td colspan="7">Cargando...</td></tr>';
-    
-    const products = await fetchProducts();
+    tbody.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
+
+    allProductsAdmin = await fetchProducts();
+
+    // Resetear buscador al recargar
+    const searchInput = document.getElementById('admin-search');
+    if (searchInput) searchInput.value = '';
+
+    renderProductsAdminTable(allProductsAdmin);
+}
+
+function filterProductsAdmin(term) {
+    const t = term.toLowerCase();
+    const filtered = allProductsAdmin.filter(p =>
+        p.name.toLowerCase().includes(t) ||
+        p.code.toLowerCase().includes(t) ||
+        (p.brand || '').toLowerCase().includes(t) ||
+        (p.provider || '').toLowerCase().includes(t)
+    );
+    renderProductsAdminTable(filtered);
+}
+
+function renderProductsAdminTable(products) {
+    const tbody = document.getElementById('admin-products-tbody');
     tbody.innerHTML = '';
 
+    if (products.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--text-muted);">Sin resultados</td></tr>';
+        return;
+    }
+
     products.forEach(p => {
-        const price = p.cost + (p.cost * p.profit_margin / 100);
+        const price = p.cost * (1 + p.profit_margin / 100);
+        const scaledBadge = p.has_scaled_prices
+            ? `<span style="background: rgba(16,185,129,0.15); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; margin-left: 6px;">Escalonado</span>`
+            : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${p.code}</td>
@@ -204,7 +256,7 @@ async function loadProductsAdmin() {
             <td>${p.provider || '-'}</td>
             <td>$${p.cost.toFixed(2)}</td>
             <td><span class="badge" style="background: rgba(16,185,129,0.2); color: var(--accent); padding: 4px 8px; border-radius: 4px;">${p.profit_margin}%</span></td>
-            <td><strong>$${price.toFixed(2)}</strong></td>
+            <td><strong>$${price.toFixed(2)}</strong>${scaledBadge}</td>
             <td>
                 <button class="btn-icon" style="width: 32px; height: 32px; font-size: 1rem;" onclick='showProductModal(${JSON.stringify(p)})'><i class="ph ph-pencil-simple"></i></button>
                 <button class="btn-icon" style="width: 32px; height: 32px; font-size: 1rem; color: #ef4444;" onclick='deleteProduct(${p.id})'><i class="ph ph-trash"></i></button>
@@ -257,11 +309,78 @@ function enterAsAdmin() {
     }
 }
 
+// Precios escalonados — estado y lógica del modal
+let currentPriceTiers = [];
+
+function addPriceTier() {
+    if (currentPriceTiers.length >= 3) return;
+    currentPriceTiers.push({ quantity: '', discount_percentage: '' });
+    renderPriceTiers();
+}
+
+function removePriceTier(index) {
+    currentPriceTiers.splice(index, 1);
+    renderPriceTiers();
+}
+
+function updateTierField(index, field, value) {
+    currentPriceTiers[index][field] = value === '' ? '' : parseFloat(value);
+    // No re-renderizar: evita perder el foco durante la escritura
+}
+
+function updateTierPreview(index) {
+    const cost = parseFloat(document.getElementById('product-cost').value) || 0;
+    const input = document.getElementById(`tier-margin-${index}`);
+    const preview = document.getElementById(`tier-preview-${index}`);
+    if (!input || !preview) return;
+    const m = parseFloat(input.value);
+    preview.textContent = (!isNaN(m) && m >= 0 && cost > 0)
+        ? `→ $${(cost * (1 + m / 100)).toFixed(2)}`
+        : '';
+}
+
+function renderPriceTiers() {
+    const container = document.getElementById('price-tiers-container');
+    const btnAdd = document.getElementById('btn-add-tier');
+    if (!container) return;
+
+    const cost = parseFloat(document.getElementById('product-cost').value) || 0;
+
+    container.innerHTML = '';
+    currentPriceTiers.forEach((tier, i) => {
+        const m = parseFloat(tier.discount_percentage);
+        const scaledPrice = (!isNaN(m) && m >= 0 && cost > 0) ? cost * (1 + m / 100) : null;
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;';
+        row.innerHTML = `
+            <span style="font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;">A partir de</span>
+            <input type="number" min="1" value="${tier.quantity}" placeholder="Cant."
+                style="width: 65px; padding: 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit; font-size: 0.85rem; text-align: center;"
+                onchange="updateTierField(${i}, 'quantity', this.value)">
+            <span style="font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;">u. —</span>
+            <input type="number" id="tier-margin-${i}" min="0" max="999" step="0.01" value="${tier.discount_percentage}" placeholder="%"
+                style="width: 65px; padding: 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit; font-size: 0.85rem; text-align: center;"
+                oninput="updateTierPreview(${i})" onchange="updateTierField(${i}, 'discount_percentage', this.value)">
+            <span style="font-size: 0.82rem; color: var(--text-muted);">% margen</span>
+            <span id="tier-preview-${i}" style="font-size: 0.85rem; color: var(--accent); font-weight: 600; min-width: 70px;">
+                ${scaledPrice !== null ? '→ $' + scaledPrice.toFixed(2) : ''}
+            </span>
+            <button type="button" class="btn-icon" style="width: 24px; height: 24px; color: #ef4444; font-size: 0.9rem; margin-left: auto;" onclick="removePriceTier(${i})">
+                <i class="ph ph-trash"></i>
+            </button>
+        `;
+        container.appendChild(row);
+    });
+
+    if (btnAdd) btnAdd.style.display = currentPriceTiers.length >= 3 ? 'none' : '';
+}
+
 // Product CRUD functions
 function showProductModal(product = null) {
     const title = document.getElementById('product-modal-title');
     const form = document.getElementById('product-form');
-    
+
     if (product) {
         title.textContent = 'Editar Producto';
         document.getElementById('product-id').value = product.id;
@@ -275,18 +394,21 @@ function showProductModal(product = null) {
         document.getElementById('product-provider').value = product.provider || '';
         document.getElementById('product-units').value = product.units || '';
         document.getElementById('product-others').value = product.others || '';
+        currentPriceTiers = (product.scaled_prices || []).map(t => ({ ...t }));
     } else {
         title.textContent = 'Nuevo Producto';
         form.reset();
         document.getElementById('product-id').value = '';
+        currentPriceTiers = [];
     }
-    
+
+    renderPriceTiers();
     document.getElementById('product-modal').classList.remove('hidden');
 }
 
 async function saveProduct(e) {
     e.preventDefault();
-    
+
     const id = document.getElementById('product-id').value;
     const product = {
         code: document.getElementById('product-code').value,
@@ -300,23 +422,35 @@ async function saveProduct(e) {
         units: document.getElementById('product-units').value,
         others: document.getElementById('product-others').value
     };
-    
+
     try {
         const method = id ? 'PUT' : 'POST';
         const url = id ? `/api/products/${id}` : '/api/products';
-        
+
         const response = await fetch(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(product)
         });
-        
+
         if (!response.ok) throw new Error("Fallo al guardar producto");
-        
+
+        const data = await response.json();
+        const productId = id || data.id;
+
+        // Guardar precios escalonados
+        const validTiers = currentPriceTiers.filter(t => t.quantity > 0 && t.discount_percentage > 0);
+        await fetch(`/api/products/${productId}/prices`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tiers: validTiers })
+        });
+
+        currentPriceTiers = [];
         document.getElementById('product-modal').classList.add('hidden');
-        loadProductsAdmin(); // Reload table
-        initPOS(); // Reload POS products
-        
+        loadProductsAdmin();
+        initPOS();
+
     } catch (err) {
         alert("Error al guardar: " + err.message);
     }
