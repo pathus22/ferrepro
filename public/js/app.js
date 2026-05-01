@@ -57,11 +57,17 @@ async function fetchProducts() {
     }
 }
 
-// Formatea la unidad de venta del producto: "Caja x50 unidades", "x1 metro", etc.
+// Palabras que son nombres de unidad, no de presentación (para filtrar datos viejos en el campo units)
+const UNIT_WORDS = new Set(['unidad', 'unidades', 'metro', 'metros', 'litro', 'litros', 'kg', 'par', 'rollo', 'pliego', 'tira', 'caja']);
+
+// Formatea la unidad de venta: "Caja x10 Unidades", "x1 Unidad", "x10 Metros", etc.
 function formatSaleUnit(p) {
     const qty = p.sale_qty || 1;
-    const unit = p.sale_unit || 'unidades';
-    const presentation = (p.units || '').trim();
+    const rawUnit = (p.sale_unit || 'unidades').trim();
+    const unit = rawUnit.charAt(0).toUpperCase() + rawUnit.slice(1);
+    const raw = (p.units || '').trim().toLowerCase();
+    // Ignorar si el campo tiene datos viejos: palabras de unidad o contiene dígitos (ej: "Caja x10", "unidad")
+    const presentation = raw && !UNIT_WORDS.has(raw) && !/\d/.test(raw) ? (p.units || '').trim() : '';
     return presentation ? `${presentation} x${qty} ${unit}` : `x${qty} ${unit}`;
 }
 
