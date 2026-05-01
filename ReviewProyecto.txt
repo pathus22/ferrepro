@@ -1,0 +1,281 @@
+================================================================================
+  REVIEW DEL PROYECTO - SOFTWARE DE GESTIÓN FERRETERÍA (FerrePro)
+  Fecha de revisión: 2026-05-01
+================================================================================
+
+ESTADO GENERAL: FASE 1 PARCIALMENTE COMPLETA / FASE 2 INICIADA
+La app tiene el esqueleto funcional armado. El Punto de Venta y el CRUD de
+productos están operativos. Los módulos de Fase 2, 3 y 4 están pendientes.
+
+--------------------------------------------------------------------------------
+FASE 1 — ENTORNO, BASE DE DATOS Y MÓDULO DE PRODUCTOS
+--------------------------------------------------------------------------------
+
+[ INFRAESTRUCTURA Y ENTORNO ]
+  [x] Node.js con Express como servidor backend local
+  [x] SQLite con better-sqlite3 como base de datos
+  [x] Servidor iniciado en puerto 3000 (configurable por .env)
+  [x] Archivos estáticos servidos desde /public
+  [x] Script start.bat para iniciar el servidor en Windows
+  [ ] start.bat abre automáticamente el navegador al iniciar
+  [ ] Soporte para acceso desde otros dispositivos en red (documentado/configurado)
+  [ ] Archivo .env con variables de entorno (PORT, contraseña admin, etc.)
+
+[ BASE DE DATOS — ESQUEMA ]
+  [x] Tabla: products (code, name, provider, category, brand, units, others,
+              cost, profit_margin, stock, min_stock, last_cost_update,
+              previous_cost, has_scaled_prices)
+  [x] Tabla: providers (name, general_iva, general_discount)
+  [x] Tabla: categories (name)
+  [x] Tabla: product_prices — precios escalonados por cantidad
+  [x] Tabla: corridors (name, is_particular_builder)
+  [x] Tabla: sales (total, sale_date, corridor_id, payment_method, is_fiscal_ticket)
+  [x] Tabla: sale_items (sale_id, product_id, quantity, unit_price)
+  [ ] Tabla: clients / customers (para facturación con datos del comprador)
+  [ ] Tabla: providers — campos adicionales: CUIT, email, teléfono, dirección
+  [ ] Tabla: purchases / compras (registro de facturas de proveedor)
+  [ ] Tabla: cash_movements / caja (movimientos de caja)
+  [ ] Tabla: expenses / gastos
+  [ ] Tabla: checks / cheques (cartera)
+
+[ MÓDULO DE PRODUCTOS — BACKEND (API REST) ]
+  [x] GET  /api/products — listar todos los productos
+  [x] POST /api/products — crear producto
+  [x] PUT  /api/products/:id — editar producto
+  [x] DELETE /api/products/:id — eliminar producto
+  [ ] GET  /api/products/:id — obtener un producto por ID
+  [ ] GET  /api/products?search=X — búsqueda server-side (hoy es client-side)
+  [ ] GET  /api/categories — listar categorías
+  [ ] POST /api/categories — crear categoría
+  [ ] GET  /api/providers — listar proveedores
+  [ ] POST /api/providers — crear proveedor
+  [ ] PUT  /api/providers/:id — editar proveedor
+  [ ] Endpoint para precios escalonados (product_prices)
+  [ ] Historial de costos (previous_cost + last_cost_update ya en schema)
+
+[ MÓDULO DE PRODUCTOS — FRONTEND ]
+  [x] Tabla de productos con columnas: Código, Descripción, Marca,
+      Proveedor, Costo, Margen, Precio Venta
+  [x] Modal crear/editar producto (campos: código, descripción, costo,
+      margen, categoría, marca, proveedor, unidades, otros, stock)
+  [x] Botón eliminar con confirmación
+  [x] Recarga automática de tabla tras cambios
+  [ ] Filtros y búsqueda en la tabla de productos (columna por columna)
+  [ ] Ordenamiento de columnas
+  [ ] Paginación (cuando el catálogo sea grande)
+  [ ] Gestión de Categorías desde la UI (ABM completo)
+  [ ] Gestión de Proveedores desde la UI (ABM completo)
+  [ ] Configuración de precios escalonados por producto
+  [ ] Vista del historial de costos por producto
+
+[ MÓDULO DE IMPORTACIÓN — EXCEL ]
+  [ ] Librería xlsx integrada en el backend
+  [ ] Endpoint POST /api/import/excel para recibir archivo
+  [ ] Interfaz: el usuario sube un Excel y ve las primeras filas (preview)
+  [ ] Mapeo dinámico de columnas (¿cuál es Código? ¿cuál es Descripción? etc.)
+  [ ] Validación de datos antes de importar
+  [ ] Importación masiva a la tabla products
+
+[ MÓDULO DE IMPORTACIÓN — PDF ]
+  [ ] Definir librería (pdf-parse, pdfjs-dist u otra)
+  [ ] Endpoint POST /api/import/pdf para recibir archivo
+  [ ] Parseo y extracción de productos desde catálogos PDF
+  [ ] Interfaz de revisión/corrección antes de importar
+
+[ CÁLCULO DE COSTOS Y PRECIOS ]
+  [x] Cálculo de precio de venta: Costo + (Costo × Margen%) — en frontend
+  [ ] Cálculo con IVA incluido (según proveedor: general_iva)
+  [ ] Aplicación de descuentos por proveedor (general_discount)
+  [ ] Margen diferenciado por categoría (preset de margen al crear)
+  [ ] Lógica de precios escalonados por cantidad en POS
+
+--------------------------------------------------------------------------------
+FASE 2 — VENTAS, FACTURACIÓN Y TICKET
+--------------------------------------------------------------------------------
+
+[ INTERFAZ DE MOSTRADOR (POS) ]
+  [x] Vista separada "Mostrador" con control por rol de usuario
+  [x] Grilla de productos con búsqueda en tiempo real (código o nombre)
+  [x] Tarjetas de producto con precio calculado visible
+  [x] Carrito: agregar producto, modificar cantidad, eliminar ítem
+  [x] Cálculo de subtotal y total del carrito
+  [x] Estado visual de carrito vacío
+  [ ] Modificación temporal del precio de un ítem en el carrito (descuento puntual)
+  [ ] Campo de nota/observación en el carrito o por ítem
+  [ ] Búsqueda por scanner de código de barras (foco automático en input)
+  [ ] Precio con IVA desglosado en el carrito
+  [ ] Indicador de stock disponible al agregar al carrito
+  [ ] Advertencia si se intenta vender más unidades que el stock disponible
+
+[ COBRO Y CIERRE DE VENTA ]
+  [ ] Modal/flujo de cobro con selección de medio de pago
+      (efectivo, tarjeta débito, tarjeta crédito, transferencia, cheque)
+  [ ] Cálculo de vuelto para pago en efectivo
+  [ ] Guardado de la venta en tabla `sales` y `sale_items`
+  [ ] Descuento automático de stock al confirmar venta
+  [ ] Asociar venta a un corredor/cliente (opcional)
+  [ ] Comprobante de venta generado tras cobrar
+
+[ FACTURACIÓN / TICKETS ]
+  [ ] Definir flujo de "Imprimir como presupuesto" (PDF generado server-side)
+  [ ] Template HTML/CSS del presupuesto (con logo, datos de la empresa, ítems, total)
+  [ ] Generación de PDF desde backend (librería puppeteer o pdfkit)
+  [ ] Impresión directa a impresora térmica genérica (formato 80mm)
+  [ ] Integración con Controlador Fiscal — PENDIENTE DE DEFINICIÓN
+      (opciones: impresora local por COM/USB vs. webservice AFIP)
+  [ ] Numeración de comprobantes (correlativa)
+
+[ AUTENTICACIÓN Y ROLES ]
+  [x] Sistema de autenticación básico client-side (contraseña "test")
+  [x] Roles: mostrador (solo POS) y admin (todo)
+  [ ] Autenticación real server-side (contraseña hasheada, sesión o token)
+  [ ] Múltiples usuarios con diferentes contraseñas
+  [ ] Log de acciones por usuario (auditoría básica)
+  [ ] Rol adicional: "supervisor" (puede ver reportes pero no configurar)
+
+--------------------------------------------------------------------------------
+FASE 3 — CORREDORES, STOCK Y PEDIDOS
+--------------------------------------------------------------------------------
+
+[ MÓDULO DE CORREDORES Y CUENTAS CLARAS ]
+  [ ] Vista "Corredores y Cuentas Claras" — solo placeholder actualmente
+  [ ] ABM de corredores desde la UI
+  [ ] Sub-lista "obra particular" por corredor
+  [ ] Lista de precios personalizada por corredor (% de descuento o precio fijo)
+  [ ] Exportación de lista de precios a PDF
+  [ ] Exportación de lista de precios a Excel
+  [ ] Registro de ventas a cuenta corriente por corredor
+  [ ] Estado de cuenta: saldo, historial de ventas, pagos recibidos
+  [ ] Registro de pagos/cobranzas de corredores
+
+[ MÓDULO DE STOCK E INVENTARIO ]
+  [ ] Vista "Stock e Inventario" — solo placeholder actualmente
+  [ ] Inventario diferenciado: Galpón vs. Local (campo adicional en products o tabla separada)
+  [ ] Baja automática de stock al confirmar una venta (depende del módulo de cobro)
+  [ ] Ajuste manual de stock (entrada, salida, ajuste de inventario físico)
+  [ ] Listado de "Faltante Momentáneo" (productos sin stock)
+  [ ] Alerta visual de stock mínimo (campo min_stock ya existe en schema)
+  [ ] Informe de stock crítico (exportable)
+  [ ] Movimientos de stock con trazabilidad (quién movió, cuándo, cuánto)
+
+[ MÓDULO DE PEDIDOS A PROVEEDOR ]
+  [ ] Algoritmo que detecta productos bajo stock mínimo
+  [ ] Generación automática de borrador de pedido por proveedor
+  [ ] Edición manual del pedido antes de enviarlo
+  [ ] Exportación del pedido a PDF o Excel
+  [ ] Registro del pedido enviado y su estado (pendiente, recibido parcial, completo)
+  [ ] Recepción de mercadería: actualiza stock y registra costo de compra
+
+--------------------------------------------------------------------------------
+FASE 4 — ADMINISTRACIÓN Y FINANZAS
+--------------------------------------------------------------------------------
+
+[ MÓDULO DE GASTOS Y COMPRAS ]
+  [ ] Vista "Administración y Finanzas" — solo placeholder actualmente
+  [ ] Carga de facturas de proveedor
+  [ ] Integración: al cargar factura, actualiza stock y costo de productos
+  [ ] Registro de cuentas a pagar (proveedores con saldo)
+  [ ] Programación de vencimientos de pago
+
+[ MÓDULO DE CAJA Y BANCOS ]
+  [ ] Apertura y cierre de caja diario
+  [ ] Registro de ingresos por medio de pago
+  [ ] Registro de egresos (gastos, pagos a proveedores)
+  [ ] Resumen de caja del día
+  [ ] Cartera de cheques recibidos con vencimientos
+  [ ] Vencimientos de servicios / obligaciones (alerta configurable)
+  [ ] Conciliación básica con extracto bancario
+
+[ ESTADÍSTICAS Y DASHBOARD ]
+  [ ] Dashboard con KPIs principales (ventas del día, del mes, top productos)
+  [ ] Gráfico de ventas por período (diario, semanal, mensual)
+  [ ] Ganancia por producto / categoría
+  [ ] Productos más vendidos (ranking)
+  [ ] Comparativa de períodos (este mes vs. mes anterior)
+  [ ] Exportación de reportes a PDF / Excel
+
+--------------------------------------------------------------------------------
+ÍTEMS TRANSVERSALES (aplican a toda la app)
+--------------------------------------------------------------------------------
+
+[ UX / UI ]
+  [x] Diseño glassmorphism con tema oscuro — moderno y consistente
+  [x] Sidebar con navegación por rol
+  [x] Topbar con reloj en tiempo real (hora Argentina)
+  [x] Tipografía Inter (Google Fonts)
+  [ ] Diseño responsive / adaptado para tablets (sin media queries aún)
+  [ ] Feedback visual en operaciones: spinners, toasts de éxito/error
+  [ ] Manejo de errores de red en el frontend (cuando la API falla)
+  [ ] Modo de pantalla completa para mostrador (F11 o botón dedicado)
+  [ ] Favicon e iconografía consistente
+
+[ SEGURIDAD Y CONFIGURACIÓN ]
+  [ ] Contraseña admin configurable (hoy hardcodeada como "test")
+  [ ] Datos de la empresa configurables (nombre, CUIT, dirección, logo)
+      para usar en tickets y presupuestos
+  [ ] Backup automático de la base de datos SQLite (diario o por evento)
+  [ ] Recuperación ante errores de la DB
+
+[ DESPLIEGUE ]
+  [x] start.bat inicia el servidor node
+  [ ] start.bat abre el navegador automáticamente
+  [ ] Empaquetado como ejecutable (.exe) con pkg o similar (opcional)
+  [ ] Documentación de instalación para el usuario final
+  [ ] Instrucciones para que otros dispositivos en red accedan por IP
+
+--------------------------------------------------------------------------------
+RESUMEN CUANTITATIVO
+--------------------------------------------------------------------------------
+
+  FASE 1 — Entorno y Productos
+    Completados:  ~18 ítems
+    Pendientes:   ~30 ítems
+
+  FASE 2 — Ventas y Facturación
+    Completados:  ~8 ítems (interfaz POS básica y roles)
+    Pendientes:   ~20 ítems
+
+  FASE 3 — Corredores, Stock y Pedidos
+    Completados:  0 ítems
+    Pendientes:   ~22 ítems
+
+  FASE 4 — Finanzas y Administración
+    Completados:  0 ítems
+    Pendientes:   ~18 ítems
+
+  Transversales
+    Completados:  ~6 ítems
+    Pendientes:   ~11 ítems
+
+  TOTAL GENERAL: ~32 completados / ~101 pendientes
+  Avance estimado: ~24% del sistema completo
+
+--------------------------------------------------------------------------------
+PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
+--------------------------------------------------------------------------------
+
+  1. Cerrar el flujo de cobro (modal de pago + guardado en DB + descuento de stock)
+     → Desbloquea: reportes, caja, historial de ventas
+
+  2. Agregar endpoints de API faltantes (categories, providers, precios escalonados)
+     → Desbloquea: gestión completa de catálogo
+
+  3. Implementar importación de Excel con mapeo dinámico
+     → Desbloquea: carga masiva de catálogos de proveedores
+
+  4. Construir Módulo de Stock (con inventario Galpón/Local y alertas)
+     → Desbloquea: pedidos automáticos a proveedor
+
+  5. Construir Módulo de Corredores
+     → Desbloquea: ventas a cuenta corriente y listas de precios
+
+  6. Implementar generación de PDF (presupuesto y ticket no fiscal)
+     → Desbloquea: impresión y comprobantes
+
+  7. Construir Módulo de Finanzas (caja, gastos, proveedores)
+     → Completa la Fase 4
+
+  8. Dashboard y estadísticas
+     → Depende de que haya datos de ventas reales en la DB
+
+================================================================================

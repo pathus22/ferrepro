@@ -1,0 +1,6 @@
+node_modules/
+ferreteria.sqlite
+.env
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

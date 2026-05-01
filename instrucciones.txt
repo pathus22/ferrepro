@@ -1,0 +1,81 @@
+================================================================================
+  INSTRUCCIONES DE INSTALACIÓN Y USO — FerrePro
+================================================================================
+
+REQUISITOS PREVIOS
+------------------
+  - Node.js instalado (versión 18 o superior)
+    Descarga: https://nodejs.org  →  elegir "LTS"
+  - Conexión a internet solo la primera vez (para instalar dependencias)
+
+--------------------------------------------------------------------------------
+INSTALACIÓN (solo la primera vez)
+--------------------------------------------------------------------------------
+
+  1. Descargar el proyecto
+     - Ir a: https://github.com/patitoflauta/ferrepro
+     - Hacer click en el botón verde "Code" → "Download ZIP"
+     - Extraer el ZIP en cualquier carpeta (ej: C:\FerrePro)
+
+  2. Abrir una terminal en esa carpeta
+     - Hacer click derecho dentro de la carpeta → "Abrir en Terminal"
+       (o buscar "cmd" en el menú inicio y navegar con:  cd C:\FerrePro)
+
+  3. Instalar dependencias (solo una vez)
+     Escribir el siguiente comando y presionar Enter:
+
+       npm install
+
+     Esperar a que termine (puede tardar 1-2 minutos).
+
+--------------------------------------------------------------------------------
+INICIAR LA APLICACIÓN
+--------------------------------------------------------------------------------
+
+  Opción A — Doble click (más fácil):
+    Hacer doble click en el archivo:  start.bat
+    Se abre el servidor y el navegador automáticamente.
+
+  Opción B — Desde terminal:
+    Escribir el siguiente comando y presionar Enter:
+
+      node server.js
+
+    Luego abrir el navegador e ingresar:  http://localhost:3000
+
+--------------------------------------------------------------------------------
+ACCESO DESDE OTROS DISPOSITIVOS EN LA MISMA RED (tablets, otras PCs)
+--------------------------------------------------------------------------------
+
+  1. En la PC donde está instalado el servidor, averiguar su IP local:
+     - Abrir terminal y escribir:  ipconfig
+     - Buscar "Dirección IPv4" (ejemplo: 192.168.1.105)
+
+  2. En el otro dispositivo, abrir el navegador e ingresar:
+       http://192.168.1.105:3000
+     (reemplazar con la IP del paso anterior)
+
+  NOTA: Ambos dispositivos deben estar conectados al mismo Wi-Fi o red local.
+
+--------------------------------------------------------------------------------
+PRIMER ACCESO
+--------------------------------------------------------------------------------
+
+  - Al abrir la app, el rol por defecto es "Mostrador" (solo punto de venta)
+  - Para acceder al área de Administración:
+    → Hacer click en "Acceso Admin" en el panel izquierdo
+    → Contraseña: test
+
+--------------------------------------------------------------------------------
+NOTAS IMPORTANTES
+--------------------------------------------------------------------------------
+
+  - Los datos se guardan localmente en el archivo: ferreteria.sqlite
+    NO se envía ningún dato a internet.
+
+  - Hacer copias de seguridad de ese archivo periódicamente para no perder datos.
+
+  - El servidor debe quedar corriendo en la PC principal mientras se usa la app.
+    (No cerrar la terminal mientras la app esté en uso)
+
+================================================================================

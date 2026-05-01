@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferretería Pro - Sistema de Gestión</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Iconos Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- AUTHENTICATION -->
+    <div id="auth-overlay" class="todo-overlay hidden">
+        <div class="todo-card glass">
+            <i class="ph ph-lock-key"></i>
+            <h2>Acceso al Sistema</h2>
+            <p>Ingrese la contraseña para el modo administrador.</p>
+            <div style="margin-bottom: 1.5rem; text-align: left;">
+                <input type="password" id="login-password" style="width: 100%; padding: 0.75rem 1rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit; font-size: 1rem;" placeholder="Contraseña...">
+                <p id="login-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem; display: none;">Contraseña incorrecta</p>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn btn-secondary" onclick="document.getElementById('auth-overlay').classList.add('hidden')">Cancelar</button>
+                <button class="btn btn-primary" onclick="enterAsAdmin()">Ingresar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP LAYOUT -->
+    <div id="app-container">
+        
+        <!-- SIDEBAR -->
+        <aside class="sidebar glass">
+            <div class="brand">
+                <i class="ph ph-nut"></i>
+                <span>FerrePro</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <p class="nav-title">MOSTRADOR</p>
+                <button class="nav-item active" data-target="view-pos">
+                    <i class="ph ph-barcode"></i> <span>Punto de Venta</span>
+                </button>
+
+                <div id="admin-nav-section" style="display: none;">
+                    <p class="nav-title">ADMINISTRACIÓN</p>
+                    <button class="nav-item" data-target="view-products">
+                        <i class="ph ph-package"></i> <span>Productos y Precios</span>
+                    </button>
+                    <button class="nav-item" data-target="view-stock">
+                        <i class="ph ph-stack"></i> <span>Stock y Pedidos</span>
+                    </button>
+                    <button class="nav-item" data-target="view-corridors">
+                        <i class="ph ph-users-three"></i> <span>Corredores</span>
+                    </button>
+                    <button class="nav-item" data-target="view-finances">
+                        <i class="ph ph-chart-line-up"></i> <span>Finanzas y Cajas</span>
+                    </button>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="avatar">U</div>
+                    <div class="details">
+                        <span class="name">Mostrador</span>
+                        <span class="role">Vendedor</span>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem;">
+                    <button id="btn-change-admin" class="btn btn-secondary" style="width: 100%; font-size: 0.85rem; padding: 0.5rem;" onclick="document.getElementById('auth-overlay').classList.remove('hidden')">
+                        <i class="ph ph-lock-key"></i> Cambiar a Admin
+                    </button>
+                    <button id="btn-change-mostrador" class="btn btn-secondary" style="width: 100%; font-size: 0.85rem; padding: 0.5rem; display: none;" onclick="enterAsMostrador()">
+                        <i class="ph ph-sign-out"></i> Volver a Mostrador
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-content">
+            
+            <header class="topbar">
+                <div class="date-time" id="clock">
+                    15 Abr 2026, 10:00 AM
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn-icon" aria-label="Notificaciones"><i class="ph ph-bell"></i></button>
+                    <button class="btn-icon" aria-label="Ajustes"><i class="ph ph-gear"></i></button>
+                </div>
+            </header>
+
+            <!-- VIEWS -->
+
+            <!-- View: POS (Mostrador) -->
+            <section id="view-pos" class="view active">
+                <header class="view-header">
+                    <h1>Punto de Venta</h1>
+                    <p class="view-desc">Búsqueda rápida y facturación</p>
+                </header>
+                
+                <div class="pos-layout">
+                    <!-- Buscador y catálogo -->
+                    <div class="pos-main col-span-2 glass card">
+                        <div class="search-bar">
+                            <i class="ph ph-magnifying-glass"></i>
+                            <input type="text" placeholder="Buscar por código o descripción..." id="pos-search" autocomplete="off" autofocus>
+                        </div>
+                        <div class="products-grid" id="pos-products">
+                            <!-- Productos inyectados desde JS -->
+                        </div>
+                    </div>
+
+                    <!-- Carrito / Detalle de venta -->
+                    <div class="pos-sidebar glass card">
+                        <h2>Venta Actual</h2>
+                        <div class="cart-items" id="cart-items">
+                            <div class="empty-cart">
+                                <i class="ph ph-shopping-cart"></i>
+                                <p>No hay artículos</p>
+                            </div>
+                        </div>
+                        <div class="cart-summary">
+                            <div class="summary-row">
+                                <span>Subtotal</span>
+                                <span id="cart-subtotal">$0.00</span>
+                            </div>
+                            <div class="summary-row total">
+                                <span>Total</span>
+                                <span id="cart-total">$0.00</span>
+                            </div>
+                        </div>
+                        <div class="cart-actions" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <button class="btn btn-secondary" onclick="showTodoModal('Cobrar')">Cobrar</button>
+                            <button class="btn btn-secondary" onclick="showTodoModal('Imprimir como presupuesto')"><i class="ph ph-printer"></i> Imprimir como presupuesto</button>
+                            <button class="btn btn-primary" onclick="showTodoModal('Tique Fiscal')"><i class="ph ph-receipt"></i> Tique Fiscal</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- View: Productos y Precios -->
+            <section id="view-products" class="view hidden">
+                 <header class="view-header flex-between">
+                    <div>
+                        <h1>Gestión de Productos</h1>
+                        <p class="view-desc">Administrar catálogo, costos, e importación</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="showProductModal()"><i class="ph ph-plus"></i> Nuevo Producto</button>
+                        <button class="btn btn-secondary" onclick="showTodoModal('Leer PDF de catálogo')"><i class="ph ph-file-pdf"></i> Leer PDF</button>
+                        <button class="btn btn-secondary" onclick="showTodoModal('Importar listado Excel')"><i class="ph ph-file-xls"></i> Importar Excel</button>
+                    </div>
+                </header>
+                
+                <div class="card glass table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Marca</th>
+                                <th>Proveedor</th>
+                                <th>Costo</th>
+                                <th>Margen (%)</th>
+                                <th>Precio Venta</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-products-tbody">
+                            <!-- Inyectado desde JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+             <!-- View: Stock -->
+             <section id="view-stock" class="view hidden">
+                <header class="view-header">
+                    <h1>Inventario y Stock</h1>
+                </header>
+                <div class="card glass empty-state">
+                    <i class="ph ph-wrench"></i>
+                    <p>Módulo de Control de Inventario en construcción.</p>
+                </div>
+            </section>
+
+            <!-- View: Corredores -->
+            <section id="view-corridors" class="view hidden">
+                <header class="view-header">
+                    <h1>Corredores y Cuentas Claras</h1>
+                </header>
+                <div class="card glass empty-state">
+                    <i class="ph ph-wrench"></i>
+                    <p>Módulo de Corredores en construcción.</p>
+                </div>
+            </section>
+
+             <!-- View: Finanzas -->
+             <section id="view-finances" class="view hidden">
+                <header class="view-header">
+                    <h1>Administración y Finanzas</h1>
+                </header>
+                <div class="card glass empty-state">
+                    <i class="ph ph-wrench"></i>
+                    <p>Módulo de Finanzas en construcción.</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODALES TODO Y PLACEHOLDERS -->
+    <div id="todo-modal" class="modal-overlay hidden">
+        <div class="modal-content glass" style="text-align: center;">
+            <button class="close-btn" onclick="closeModal()"><i class="ph ph-x"></i></button>
+            <i class="ph ph-wrench" style="font-size: 3rem; color: var(--accent); margin-bottom: 1rem; display: block;"></i>
+            <h2 id="todo-modal-title" style="margin-bottom: 0.5rem;">TODO</h2>
+            <p id="todo-modal-desc" style="color: var(--text-muted);">Esta funcionalidad está pendiente de definición.</p>
+        </div>
+    </div>
+
+    <!-- PRODUCT FORM MODAL -->
+    <div id="product-modal" class="modal-overlay hidden">
+        <div class="modal-content glass" style="max-width: 500px; text-align: left;">
+            <button class="close-btn" onclick="document.getElementById('product-modal').classList.add('hidden')"><i class="ph ph-x"></i></button>
+            <h2 id="product-modal-title" style="margin-bottom: 1.5rem;">Nuevo Producto</h2>
+            <form id="product-form" onsubmit="saveProduct(event)">
+                <input type="hidden" id="product-id">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Código</label>
+                    <input type="text" id="product-code" required class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Descripción</label>
+                    <input type="text" id="product-name" required class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                </div>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="flex: 1;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Costo ($)</label>
+                        <input type="number" id="product-cost" step="0.01" required class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Margen (%)</label>
+                        <input type="number" id="product-margin" step="0.01" required class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="flex: 1;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Categoría</label>
+                        <input type="text" id="product-category" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Marca</label>
+                        <input type="text" id="product-brand" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="flex: 1;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Proveedor</label>
+                        <input type="text" id="product-provider" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Unidades</label>
+                        <input type="text" id="product-units" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                    </div>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Otros</label>
+                    <input type="text" id="product-others" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">Stock Inicial</label>
+                    <input type="number" id="product-stock" class="search-bar input" style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit;">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('product-modal').classList.add('hidden')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

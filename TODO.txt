@@ -1,0 +1,8 @@
+- Definir lógica y guardado en DB para la acción de "Cobrar"
+- Definir integración para "Tique Fiscal" (¿impresora local o webservice AFIP?)
+- Definir lógica, diseño e impresión de "Imprimir como presupuesto"
+- Definir formato de importación de Excel (mapeo de columnas a utilizar)
+- Definir librería y parseo para lectura de catálogos en PDF
+- Construir el Módulo de Inventario y Stock
+- Construir el Módulo de Corredores y Cuentas Claras
+- Construir el Módulo de Finanzas y Cajas
