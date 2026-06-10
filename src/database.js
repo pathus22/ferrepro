@@ -80,4 +80,20 @@ initDB();
 try { db.exec(`ALTER TABLE products ADD COLUMN sale_qty INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE products ADD COLUMN sale_unit TEXT DEFAULT 'unidades'`); } catch(e) {}
 
+// Sincronizar categorías y proveedores a partir de los productos ya cargados
+// (inserta solo los que falten; corre en cada arranque sin duplicar)
+try {
+    const insCat = db.prepare(
+        "INSERT INTO categories (name) SELECT @n WHERE NOT EXISTS (SELECT 1 FROM categories WHERE name = @n)"
+    );
+    db.prepare("SELECT DISTINCT category AS name FROM products WHERE category IS NOT NULL AND TRIM(category) != ''")
+        .all().forEach(c => insCat.run({ n: c.name.trim() }));
+
+    const insProv = db.prepare(
+        "INSERT INTO providers (name) SELECT @n WHERE NOT EXISTS (SELECT 1 FROM providers WHERE name = @n)"
+    );
+    db.prepare("SELECT DISTINCT provider AS name FROM products WHERE provider IS NOT NULL AND TRIM(provider) != ''")
+        .all().forEach(p => insProv.run({ n: p.name.trim() }));
+} catch (e) { console.error('Sync categorías/proveedores:', e.message); }
+
 module.exports = db;

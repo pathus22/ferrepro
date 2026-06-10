@@ -248,14 +248,40 @@
                 </div>
             </section>
 
-            <!-- View: Finanzas -->
+            <!-- View: Finanzas / Caja e Historial -->
             <section id="view-finances" class="view hidden">
                 <header class="view-header">
-                    <h1>Administración y Finanzas</h1>
+                    <h1>Caja e Historial</h1>
+                    <p class="view-desc">Ventas registradas y resumen del día</p>
+                    <div class="header-actions">
+                        <div class="date-picker">
+                            <i class="ph ph-calendar-blank"></i>
+                            <input type="date" id="caja-date" onchange="loadCaja()">
+                        </div>
+                        <button class="btn btn-secondary" onclick="setCajaToday()"><i class="ph ph-clock-counter-clockwise"></i> Hoy</button>
+                    </div>
                 </header>
-                <div class="panel empty-state">
-                    <i class="ph ph-wrench"></i>
-                    <p>Módulo de Finanzas en construcción.</p>
+
+                <!-- Tarjetas de resumen -->
+                <div class="stats-grid" id="caja-stats"></div>
+
+                <!-- Desglose por medio de pago -->
+                <div id="caja-methods" class="pay-breakdown"></div>
+
+                <!-- Tabla de ventas -->
+                <div class="panel table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Detalle</th>
+                                <th>Medio de pago</th>
+                                <th>Comprob.</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="caja-tbody"></tbody>
+                    </table>
                 </div>
             </section>
 
@@ -302,15 +328,18 @@
                     </div>
                     <div class="form-field">
                         <label for="product-category">Categoría</label>
-                        <input type="text" id="product-category" class="form-input">
+                        <input type="text" id="product-category" class="form-input" list="category-options" autocomplete="off">
+                        <datalist id="category-options"></datalist>
                     </div>
                     <div class="form-field">
                         <label for="product-brand">Marca</label>
-                        <input type="text" id="product-brand" class="form-input">
+                        <input type="text" id="product-brand" class="form-input" list="brand-options" autocomplete="off">
+                        <datalist id="brand-options"></datalist>
                     </div>
                     <div class="form-field">
                         <label for="product-provider">Proveedor</label>
-                        <input type="text" id="product-provider" class="form-input">
+                        <input type="text" id="product-provider" class="form-input" list="provider-options" autocomplete="off">
+                        <datalist id="provider-options"></datalist>
                     </div>
                     <div class="form-field">
                         <label for="product-units">Presentación <span class="opt">(opcional)</span></label>

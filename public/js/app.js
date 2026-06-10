@@ -63,6 +63,8 @@ function initNavigation() {
 
             if (targetId === 'view-products') {
                 loadProductsAdmin();
+            } else if (targetId === 'view-finances') {
+                initCajaView();
             }
 
             // En mobile, cerrar el drawer al navegar
@@ -704,7 +706,30 @@ function showProductModal(product = null) {
     }
 
     renderPriceTiers();
+    loadCatalogLists();
     document.getElementById('product-modal').classList.remove('hidden');
+}
+
+// Llena los datalists de categoría / proveedor / marca para autocompletado en el modal
+async function loadCatalogLists() {
+    try {
+        const [cats, provs] = await Promise.all([
+            fetch('/api/categories').then(r => r.ok ? r.json() : []),
+            fetch('/api/providers').then(r => r.ok ? r.json() : [])
+        ]);
+        fillDatalist('category-options', cats.map(c => c.name));
+        fillDatalist('provider-options', provs.map(p => p.name));
+        // Marcas: valores distintos de los productos ya cargados
+        const brands = [...new Set((allProductsAdmin.length ? allProductsAdmin : currentProducts)
+            .map(p => p.brand).filter(Boolean))].sort();
+        fillDatalist('brand-options', brands);
+    } catch (e) { /* autocompletado es opcional, no bloquea el alta */ }
+}
+
+function fillDatalist(id, values) {
+    const dl = document.getElementById(id);
+    if (!dl) return;
+    dl.innerHTML = values.map(v => `<option value="${String(v).replace(/"/g, '&quot;')}">`).join('');
 }
 
 async function saveProduct(e) {
@@ -777,6 +802,144 @@ async function deleteProduct(id) {
     } catch (err) {
         alert("Error al eliminar: " + err.message);
     }
+}
+
+// ===== Caja e Historial (Finanzas) =====
+const PAY_LABELS = {
+    efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito',
+    transferencia: 'Transferencia', cheque: 'Cheque'
+};
+const PAY_ICONS = {
+    efectivo: 'ph-money', debito: 'ph-credit-card', credito: 'ph-credit-card',
+    transferencia: 'ph-arrows-left-right', cheque: 'ph-scroll'
+};
+
+// Fecha de hoy en formato YYYY-MM-DD en hora LOCAL (no UTC)
+function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function setCajaToday() {
+    document.getElementById('caja-date').value = todayStr();
+    loadCaja();
+}
+
+// Se llama al entrar a la vista: si no hay fecha elegida, usa hoy
+function initCajaView() {
+    const input = document.getElementById('caja-date');
+    if (!input.value) input.value = todayStr();
+    loadCaja();
+}
+
+async function loadCaja() {
+    const date = document.getElementById('caja-date').value || todayStr();
+    const tbody = document.getElementById('caja-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--muted);">Cargando...</td></tr>';
+    try {
+        const sales = await fetch(`/api/sales?date=${date}`).then(r => r.json());
+        renderCaja(sales);
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--red);">Error al cargar ventas</td></tr>';
+    }
+}
+
+function renderCaja(sales) {
+    const fmt = n => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    // --- Resumen ---
+    const count = sales.length;
+    const total = sales.reduce((s, v) => s + v.total, 0);
+    const average = count ? total / count : 0;
+    const fiscalCount = sales.filter(v => v.is_fiscal_ticket).length;
+
+    document.getElementById('caja-stats').innerHTML = `
+        <div class="stat-card stat-accent">
+            <span class="stat-label"><i class="ph ph-cash-register"></i> Total del día</span>
+            <span class="stat-value">${fmt(total)}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label"><i class="ph ph-receipt"></i> Ventas</span>
+            <span class="stat-value">${count}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label"><i class="ph ph-chart-bar"></i> Ticket promedio</span>
+            <span class="stat-value">${fmt(average)}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label"><i class="ph ph-stamp"></i> Tiques fiscales</span>
+            <span class="stat-value">${fiscalCount}<span class="stat-sub"> / ${count}</span></span>
+        </div>
+    `;
+
+    // --- Desglose por medio de pago ---
+    const byMethod = {};
+    sales.forEach(v => {
+        const m = v.payment_method || 'efectivo';
+        if (!byMethod[m]) byMethod[m] = { count: 0, total: 0 };
+        byMethod[m].count++;
+        byMethod[m].total += v.total;
+    });
+    const methodsEl = document.getElementById('caja-methods');
+    methodsEl.innerHTML = Object.keys(byMethod).length === 0 ? '' :
+        Object.entries(byMethod)
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(([m, d]) => `
+                <div class="method-pill">
+                    <i class="ph ${PAY_ICONS[m] || 'ph-money'}"></i>
+                    <div>
+                        <span class="method-name">${PAY_LABELS[m] || m}</span>
+                        <span class="method-count">${d.count} ${d.count === 1 ? 'venta' : 'ventas'}</span>
+                    </div>
+                    <span class="method-total">${fmt(d.total)}</span>
+                </div>
+            `).join('');
+
+    // --- Tabla de ventas ---
+    const tbody = document.getElementById('caja-tbody');
+    if (count === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:2rem;">No hay ventas registradas en esta fecha.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    sales.forEach((v, idx) => {
+        const time = (v.sale_date || '').slice(11, 16) || '--:--';
+        const itemCount = (v.items || []).reduce((s, it) => s + it.quantity, 0);
+        const itemsList = (v.items || [])
+            .map(it => `${it.quantity}× ${it.name || it.code || '—'} <span class="mono" style="color:var(--muted);">(${fmt(it.unit_price)})</span>`)
+            .join('<br>');
+
+        const tr = document.createElement('tr');
+        tr.className = 'caja-row';
+        tr.innerHTML = `
+            <td class="num">${time}</td>
+            <td>
+                <button class="detail-toggle" onclick="toggleSaleDetail(${idx})">
+                    <i class="ph ph-caret-right" id="caret-${idx}"></i>
+                    ${itemCount} ${itemCount === 1 ? 'artículo' : 'artículos'}
+                </button>
+            </td>
+            <td><span class="pay-badge"><i class="ph ${PAY_ICONS[v.payment_method] || 'ph-money'}"></i> ${PAY_LABELS[v.payment_method] || v.payment_method || '—'}</span></td>
+            <td>${v.is_fiscal_ticket ? '<span class="badge badge-scaled" style="margin:0;">Fiscal</span>' : '<span style="color:var(--muted);">—</span>'}</td>
+            <td class="num"><strong>${fmt(v.total)}</strong></td>
+        `;
+        tbody.appendChild(tr);
+
+        const detail = document.createElement('tr');
+        detail.className = 'caja-detail hidden';
+        detail.id = `detail-${idx}`;
+        detail.innerHTML = `<td colspan="5"><div class="detail-items">Venta #${v.id} · ${itemsList}</div></td>`;
+        tbody.appendChild(detail);
+    });
+}
+
+function toggleSaleDetail(idx) {
+    const detail = document.getElementById(`detail-${idx}`);
+    const caret = document.getElementById(`caret-${idx}`);
+    if (!detail) return;
+    const open = detail.classList.toggle('hidden');
+    caret.className = open ? 'ph ph-caret-right' : 'ph ph-caret-down';
 }
 
 // Boot

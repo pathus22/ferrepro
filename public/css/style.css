@@ -1354,6 +1354,149 @@ body {
     .pay-chip { flex: 1 1 calc(50% - 0.5rem); }
 }
 
+/* ============ CAJA E HISTORIAL ============ */
+
+.date-picker {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.date-picker i {
+    position: absolute;
+    left: 0.7rem;
+    color: var(--muted);
+    font-size: 1.1rem;
+    pointer-events: none;
+}
+
+.date-picker input[type="date"] {
+    padding: 0.55rem 0.7rem 0.55rem 2.3rem;
+    min-height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--panel-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color-scheme: dark;
+}
+
+.date-picker input[type="date"]:focus {
+    outline: none;
+    border-color: var(--amber);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+    margin-bottom: 0.9rem;
+}
+
+.stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.stat-card.stat-accent {
+    border-color: var(--amber);
+    background: linear-gradient(160deg, rgba(255, 178, 36, 0.1), var(--panel) 60%);
+}
+
+.stat-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-family: var(--font-mono);
+}
+
+.stat-label i { font-size: 1rem; color: var(--amber); }
+
+.stat-value {
+    font-family: var(--font-mono);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+}
+
+.stat-card.stat-accent .stat-value { color: var(--green); }
+
+.stat-sub { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+
+/* Desglose por medio de pago */
+.pay-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+}
+
+.method-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.9rem;
+}
+
+.method-pill > i { font-size: 1.3rem; color: var(--amber); }
+.method-pill > div { display: flex; flex-direction: column; line-height: 1.2; }
+.method-name { font-size: 0.85rem; font-weight: 600; }
+.method-count { font-size: 0.72rem; color: var(--muted); font-family: var(--font-mono); }
+.method-total {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--green);
+    margin-left: 0.6rem;
+}
+
+/* Badge de medio de pago en la tabla */
+.pay-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+}
+.pay-badge i { font-size: 1rem; color: var(--muted); }
+
+/* Fila expandible de detalle */
+.detail-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0.2rem 0;
+}
+.detail-toggle:hover { color: var(--amber); }
+.detail-toggle i { font-size: 1rem; transition: var(--transition); }
+
+.caja-detail.hidden { display: none; }
+.caja-detail td { background: var(--bg); }
+.detail-items {
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0.3rem 0.2rem 0.3rem 1.6rem;
+}
+
 /* ============ RESPONSIVE ============ */
 
 /* Pantallas bajas (notebooks 1366x768): compactar verticalmente */
@@ -1384,6 +1527,12 @@ body {
     .sidebar.open { transform: translateX(0); }
 
     .pos-layout { grid-template-columns: minmax(0, 1fr) 310px; }
+}
+
+/* Tablet: tarjetas de caja en 2 columnas */
+@media (max-width: 1023px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .method-pill { flex: 1 1 calc(50% - 0.6rem); }
 }
 
 /* Celular / tablet vertical: POS en una columna, carrito como hoja inferior */

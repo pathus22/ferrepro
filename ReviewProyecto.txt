@@ -45,12 +45,12 @@ FASE 1 — ENTORNO, BASE DE DATOS Y MÓDULO DE PRODUCTOS
   [x] DELETE /api/products/:id — eliminar producto
   [ ] GET  /api/products/:id — obtener un producto por ID
   [ ] GET  /api/products?search=X — búsqueda server-side (hoy es client-side)
-  [ ] GET  /api/categories — listar categorías
-  [ ] POST /api/categories — crear categoría
-  [ ] GET  /api/providers — listar proveedores
-  [ ] POST /api/providers — crear proveedor
-  [ ] PUT  /api/providers/:id — editar proveedor
-  [ ] Endpoint para precios escalonados (product_prices)
+  [x] GET/POST/PUT/DELETE /api/categories — ABM categorías — 2026-06-10
+  [x] GET/POST/PUT/DELETE /api/providers — ABM proveedores (con IVA y desc.) — 2026-06-10
+  [x] Auto-sync: categorías/proveedores se registran al guardar productos y se
+      pueblan desde los productos existentes al arrancar (database.js)
+  [x] Rename de categoría/proveedor propaga el cambio a los productos asociados
+  [x] Endpoint para precios escalonados (product_prices) — POST /api/products/:id/prices
   [ ] Historial de costos (previous_cost + last_cost_update ya en schema)
 
 [ MÓDULO DE PRODUCTOS — FRONTEND ]
@@ -63,9 +63,10 @@ FASE 1 — ENTORNO, BASE DE DATOS Y MÓDULO DE PRODUCTOS
   [ ] Filtros y búsqueda en la tabla de productos (columna por columna)
   [ ] Ordenamiento de columnas
   [ ] Paginación (cuando el catálogo sea grande)
-  [ ] Gestión de Categorías desde la UI (ABM completo)
-  [ ] Gestión de Proveedores desde la UI (ABM completo)
-  [ ] Configuración de precios escalonados por producto
+  [x] Autocompletado de categoría/marca/proveedor en el modal (datalists desde API) — 2026-06-10
+  [~] Gestión de Categorías desde la UI: endpoints listos; falta pantalla ABM dedicada
+  [~] Gestión de Proveedores desde la UI: endpoints listos; falta pantalla ABM dedicada
+  [x] Configuración de precios escalonados por producto (en el modal)
   [ ] Vista del historial de costos por producto
 
 [ MÓDULO DE IMPORTACIÓN — EXCEL ]
@@ -172,17 +173,20 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
 --------------------------------------------------------------------------------
 
 [ MÓDULO DE GASTOS Y COMPRAS ]
-  [ ] Vista "Administración y Finanzas" — solo placeholder actualmente
+  [x] Vista "Finanzas y Cajas" operativa (Caja e Historial) — ya no es placeholder
   [ ] Carga de facturas de proveedor
   [ ] Integración: al cargar factura, actualiza stock y costo de productos
   [ ] Registro de cuentas a pagar (proveedores con saldo)
   [ ] Programación de vencimientos de pago
 
 [ MÓDULO DE CAJA Y BANCOS ]
-  [ ] Apertura y cierre de caja diario
-  [ ] Registro de ingresos por medio de pago
+  [x] Resumen de caja del día — vista "Caja e Historial" (2026-06-10):
+      total del día, # ventas, ticket promedio, # tiques fiscales
+  [x] Registro de ingresos por medio de pago (desglose efectivo/débito/crédito/
+      transferencia/cheque, con conteo y monto por medio)
+  [x] Historial de ventas con detalle de ítems expandible + filtro por fecha
+  [ ] Apertura y cierre de caja diario (saldo inicial / arqueo)
   [ ] Registro de egresos (gastos, pagos a proveedores)
-  [ ] Resumen de caja del día
   [ ] Cartera de cheques recibidos con vencimientos
   [ ] Vencimientos de servicios / obligaciones (alerta configurable)
   [ ] Conciliación básica con extracto bancario
@@ -235,8 +239,8 @@ RESUMEN CUANTITATIVO
 --------------------------------------------------------------------------------
 
   FASE 1 — Entorno y Productos
-    Completados:  ~18 ítems
-    Pendientes:   ~30 ítems
+    Completados:  ~24 ítems (incluye API categorías/proveedores + precios escalonados)
+    Pendientes:   ~24 ítems
 
   FASE 2 — Ventas y Facturación
     Completados:  ~13 ítems (POS, roles y flujo de cobro completo)
@@ -247,15 +251,15 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~22 ítems
 
   FASE 4 — Finanzas y Administración
-    Completados:  0 ítems
-    Pendientes:   ~18 ítems
+    Completados:  ~4 ítems (Caja e Historial: resumen diario + desglose por medio)
+    Pendientes:   ~14 ítems
 
   Transversales
     Completados:  ~9 ítems
     Pendientes:   ~9 ítems
 
-  TOTAL GENERAL: ~41 completados / ~93 pendientes
-  Avance estimado: ~31% del sistema completo
+  TOTAL GENERAL: ~51 completados / ~83 pendientes
+  Avance estimado: ~38% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
@@ -264,8 +268,10 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
   1. [HECHO 2026-06-10] Flujo de cobro cerrado (modal de pago + guardado en DB +
      descuento de stock + GET /api/sales). Desbloqueó: caja, historial, reportes.
 
-  2. Agregar endpoints de API faltantes (categories, providers, precios escalonados)
-     → Desbloquea: gestión completa de catálogo
+  2. [HECHO 2026-06-10] Endpoints de catálogo (categories, providers, precios
+     escalonados) + autocompletado en el modal + módulo Caja e Historial con
+     datos reales de ventas (resumen diario, desglose por medio de pago, filtro
+     por fecha, detalle de ítems). Falta: pantalla ABM dedicada de cat./prov.
 
   3. Implementar importación de Excel con mapeo dinámico
      → Desbloquea: carga masiva de catálogos de proveedores
