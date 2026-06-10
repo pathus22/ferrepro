@@ -3,10 +3,13 @@
 - Definir lógica, diseño e impresión de "Imprimir como presupuesto"
 - Definir formato de importación de Excel (mapeo de columnas a utilizar)
 - Definir librería y parseo para lectura de catálogos en PDF
-- Construir el Módulo de Inventario y Stock
+- [HECHO 2026-06-10] Módulo de Inventario y Stock (ajustes entrada/salida/ajuste,
+    stock mínimo, alertas, filtros, trazabilidad de movimientos). Falta: depósito
+    Galpón/Local (necesita definición) e informe exportable.
 - Construir el Módulo de Corredores y Cuentas Claras
 - Construir el Módulo de Finanzas y Cajas
     [PARCIAL 2026-06-10] Caja e Historial listo (resumen diario, desglose por medio
     de pago, historial con detalle, filtro por fecha). Falta: apertura/cierre de caja
     con arqueo, egresos/gastos, cuentas a pagar, cheques.
-- Pantalla ABM dedicada de categorías y proveedores (los endpoints API ya existen)
+- [HECHO 2026-06-10] Pantalla ABM dedicada de categorías y proveedores (vista
+    "Categorías y Prov." con alta/edición/borrado; rename propaga a productos)

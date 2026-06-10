@@ -64,9 +64,10 @@ FASE 1 — ENTORNO, BASE DE DATOS Y MÓDULO DE PRODUCTOS
   [ ] Ordenamiento de columnas
   [ ] Paginación (cuando el catálogo sea grande)
   [x] Autocompletado de categoría/marca/proveedor en el modal (datalists desde API) — 2026-06-10
-  [~] Gestión de Categorías desde la UI: endpoints listos; falta pantalla ABM dedicada
-  [~] Gestión de Proveedores desde la UI: endpoints listos; falta pantalla ABM dedicada
+  [x] Gestión de Categorías desde la UI (ABM completo) — vista "Categorías y Prov." 2026-06-10
+  [x] Gestión de Proveedores desde la UI (ABM completo) — vista "Categorías y Prov." 2026-06-10
   [x] Configuración de precios escalonados por producto (en el modal)
+  [x] Campo de stock mínimo en el alta/edición de producto — 2026-06-10
   [ ] Vista del historial de costos por producto
 
 [ MÓDULO DE IMPORTACIÓN — EXCEL ]
@@ -151,14 +152,19 @@ FASE 3 — CORREDORES, STOCK Y PEDIDOS
   [ ] Registro de pagos/cobranzas de corredores
 
 [ MÓDULO DE STOCK E INVENTARIO ]
-  [ ] Vista "Stock e Inventario" — solo placeholder actualmente
-  [ ] Inventario diferenciado: Galpón vs. Local (campo adicional en products o tabla separada)
+  [x] Vista "Inventario y Stock" operativa (2026-06-10): tarjetas de resumen
+      (productos, stock crítico, sin stock, valor de inventario a costo)
   [x] Baja automática de stock al confirmar una venta — 2026-06-10
-  [ ] Ajuste manual de stock (entrada, salida, ajuste de inventario físico)
-  [ ] Listado de "Faltante Momentáneo" (productos sin stock)
-  [ ] Alerta visual de stock mínimo (campo min_stock ya existe en schema)
-  [ ] Informe de stock crítico (exportable)
-  [ ] Movimientos de stock con trazabilidad (quién movió, cuándo, cuánto)
+  [x] Ajuste manual de stock: entrada / salida / ajuste a valor, con motivo y
+      preview del stock resultante (POST /api/products/:id/stock transaccional)
+  [x] Stock mínimo editable por producto (en el modal + PUT /api/products/:id/min-stock)
+  [x] Alerta visual de stock mínimo y filtros: Todos / Stock crítico / Sin stock
+  [x] Movimientos de stock con trazabilidad (tabla stock_movements: tipo, delta,
+      stock resultante, motivo, fecha; incluye los de venta) + GET .../movements
+  [ ] Inventario diferenciado: Galpón vs. Local — requiere decisión de negocio
+      (¿de qué depósito vende el mostrador?, ¿cómo se transfiere?)
+  [ ] Informe de stock crítico exportable (PDF/Excel)
+  [ ] Trazabilidad por usuario (quién movió) — depende de auth server-side
 
 [ MÓDULO DE PEDIDOS A PROVEEDOR ]
   [ ] Algoritmo que detecta productos bajo stock mínimo
@@ -239,16 +245,16 @@ RESUMEN CUANTITATIVO
 --------------------------------------------------------------------------------
 
   FASE 1 — Entorno y Productos
-    Completados:  ~24 ítems (incluye API categorías/proveedores + precios escalonados)
-    Pendientes:   ~24 ítems
+    Completados:  ~27 ítems (API cat./prov. + ABM UI completo + stock mínimo)
+    Pendientes:   ~21 ítems
 
   FASE 2 — Ventas y Facturación
     Completados:  ~13 ítems (POS, roles y flujo de cobro completo)
     Pendientes:   ~15 ítems
 
   FASE 3 — Corredores, Stock y Pedidos
-    Completados:  0 ítems
-    Pendientes:   ~22 ítems
+    Completados:  ~6 ítems (Módulo de Stock: ajustes, alertas, trazabilidad)
+    Pendientes:   ~16 ítems
 
   FASE 4 — Finanzas y Administración
     Completados:  ~4 ítems (Caja e Historial: resumen diario + desglose por medio)
@@ -258,8 +264,8 @@ RESUMEN CUANTITATIVO
     Completados:  ~9 ítems
     Pendientes:   ~9 ítems
 
-  TOTAL GENERAL: ~51 completados / ~83 pendientes
-  Avance estimado: ~38% del sistema completo
+  TOTAL GENERAL: ~60 completados / ~74 pendientes
+  Avance estimado: ~45% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
@@ -268,27 +274,27 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
   1. [HECHO 2026-06-10] Flujo de cobro cerrado (modal de pago + guardado en DB +
      descuento de stock + GET /api/sales). Desbloqueó: caja, historial, reportes.
 
-  2. [HECHO 2026-06-10] Endpoints de catálogo (categories, providers, precios
-     escalonados) + autocompletado en el modal + módulo Caja e Historial con
-     datos reales de ventas (resumen diario, desglose por medio de pago, filtro
-     por fecha, detalle de ítems). Falta: pantalla ABM dedicada de cat./prov.
+  2. [HECHO 2026-06-10] Endpoints de catálogo + Caja e Historial + ABM completo
+     de categorías/proveedores (vista dedicada con alta/edición/borrado).
 
-  3. Implementar importación de Excel con mapeo dinámico
+  3. [HECHO 2026-06-10] Módulo de Stock: resumen (productos/crítico/sin stock/
+     valor inventario), ajustes entrada/salida/ajuste con motivo, stock mínimo
+     editable, alertas y filtros, trazabilidad de movimientos (stock_movements).
+
+  4. Módulo de Pedidos a proveedor (ya hay base: detección de bajo stock mínimo
+     y agrupación por proveedor) → borrador de pedido por proveedor + recepción
+     de mercadería (que actualiza stock y costo).
+
+  5. Implementar importación de Excel con mapeo dinámico
      → Desbloquea: carga masiva de catálogos de proveedores
 
-  4. Construir Módulo de Stock (con inventario Galpón/Local y alertas)
-     → Desbloquea: pedidos automáticos a proveedor
-
-  5. Construir Módulo de Corredores
+  6. Construir Módulo de Corredores
      → Desbloquea: ventas a cuenta corriente y listas de precios
 
-  6. Implementar generación de PDF (presupuesto y ticket no fiscal)
+  7. Implementar generación de PDF (presupuesto y ticket no fiscal)
      → Desbloquea: impresión y comprobantes
 
-  7. Construir Módulo de Finanzas (caja, gastos, proveedores)
-     → Completa la Fase 4
-
-  8. Dashboard y estadísticas
-     → Depende de que haya datos de ventas reales en la DB
+  8. Completar Finanzas (apertura/cierre de caja, gastos, cuentas a pagar) y
+     Dashboard con estadísticas (ya hay datos de ventas reales en la DB)
 
 ================================================================================

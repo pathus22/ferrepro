@@ -37,9 +37,9 @@ app.get('/api/products', (req, res) => {
 // Crear un producto
 app.post('/api/products', (req, res) => {
     try {
-        const { code, name, cost, profit_margin, stock, category, provider, brand, units, others, sale_qty, sale_unit } = req.body;
-        const stmt = db.prepare('INSERT INTO products (code, name, cost, profit_margin, stock, category, provider, brand, units, others, sale_qty, sale_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        const result = stmt.run(code, name, cost || 0, profit_margin || 50, stock || 0, category || '', provider || '', brand || '', units || '', others || '', sale_qty || 1, sale_unit || 'unidades');
+        const { code, name, cost, profit_margin, stock, min_stock, category, provider, brand, units, others, sale_qty, sale_unit } = req.body;
+        const stmt = db.prepare('INSERT INTO products (code, name, cost, profit_margin, stock, min_stock, category, provider, brand, units, others, sale_qty, sale_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        const result = stmt.run(code, name, cost || 0, profit_margin || 50, stock || 0, min_stock || 0, category || '', provider || '', brand || '', units || '', others || '', sale_qty || 1, sale_unit || 'unidades');
         ensureNamed('categories', category);
         ensureNamed('providers', provider);
         res.json({ id: result.lastInsertRowid, message: 'Producto creado' });
@@ -51,9 +51,9 @@ app.post('/api/products', (req, res) => {
 // Editar un producto
 app.put('/api/products/:id', (req, res) => {
     try {
-        const { code, name, cost, profit_margin, stock, category, provider, brand, units, others, sale_qty, sale_unit } = req.body;
-        const stmt = db.prepare('UPDATE products SET code = ?, name = ?, cost = ?, profit_margin = ?, stock = ?, category = ?, provider = ?, brand = ?, units = ?, others = ?, sale_qty = ?, sale_unit = ? WHERE id = ?');
-        stmt.run(code, name, cost, profit_margin, stock, category, provider, brand, units, others, sale_qty || 1, sale_unit || 'unidades', req.params.id);
+        const { code, name, cost, profit_margin, stock, min_stock, category, provider, brand, units, others, sale_qty, sale_unit } = req.body;
+        const stmt = db.prepare('UPDATE products SET code = ?, name = ?, cost = ?, profit_margin = ?, stock = ?, min_stock = ?, category = ?, provider = ?, brand = ?, units = ?, others = ?, sale_qty = ?, sale_unit = ? WHERE id = ?');
+        stmt.run(code, name, cost, profit_margin, stock, min_stock || 0, category, provider, brand, units, others, sale_qty || 1, sale_unit || 'unidades', req.params.id);
         ensureNamed('categories', category);
         ensureNamed('providers', provider);
         res.json({ message: 'Producto actualizado' });
@@ -207,6 +207,9 @@ app.post('/api/sales', (req, res) => {
             'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)'
         );
         const updateStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
+        const logMovement = db.prepare(
+            "INSERT INTO stock_movements (product_id, type, quantity, stock_after, reason) VALUES (?, 'venta', ?, ?, ?)"
+        );
 
         const saleId = db.transaction(() => {
             // Validar que todos los productos existan antes de tocar nada
@@ -229,8 +232,11 @@ app.post('/api/sales', (req, res) => {
             const id = sale.lastInsertRowid;
 
             for (const it of items) {
-                insertItem.run(id, it.product_id, parseInt(it.quantity), it.unit_price);
-                updateStock.run(parseInt(it.quantity), it.product_id);
+                const qty = parseInt(it.quantity);
+                const prod = getProduct.get(it.product_id);
+                insertItem.run(id, it.product_id, qty, it.unit_price);
+                updateStock.run(qty, it.product_id);
+                logMovement.run(it.product_id, -qty, prod.stock - qty, `Venta #${id}`);
             }
             return id;
         })();
@@ -262,6 +268,65 @@ app.get('/api/sales', (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// ===== STOCK =====
+
+// Ajustar stock de un producto y registrar el movimiento (transacción atómica)
+// body: { type: 'entrada'|'salida'|'ajuste', quantity, reason }
+app.post('/api/products/:id/stock', (req, res) => {
+    try {
+        const { type, quantity, reason } = req.body;
+        const qty = parseInt(quantity);
+        if (!['entrada', 'salida', 'ajuste'].includes(type)) {
+            return res.status(400).json({ error: 'Tipo de movimiento inválido' });
+        }
+        if (!Number.isFinite(qty) || qty < 0) {
+            return res.status(400).json({ error: 'Cantidad inválida' });
+        }
+
+        const prod = db.prepare('SELECT id, stock FROM products WHERE id = ?').get(req.params.id);
+        if (!prod) return res.status(404).json({ error: 'Producto no encontrado' });
+
+        // Calcular nuevo stock y delta según el tipo
+        let newStock, delta;
+        if (type === 'entrada') { delta = qty; newStock = prod.stock + qty; }
+        else if (type === 'salida') { delta = -qty; newStock = prod.stock - qty; }
+        else { newStock = qty; delta = qty - prod.stock; } // ajuste = fijar a un valor
+
+        const result = db.transaction(() => {
+            db.prepare('UPDATE products SET stock = ? WHERE id = ?').run(newStock, prod.id);
+            db.prepare(
+                'INSERT INTO stock_movements (product_id, type, quantity, stock_after, reason) VALUES (?, ?, ?, ?, ?)'
+            ).run(prod.id, type, delta, newStock, (reason || '').trim() || null);
+            return newStock;
+        })();
+
+        res.json({ stock: result, message: 'Stock actualizado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Fijar el stock mínimo de un producto
+app.put('/api/products/:id/min-stock', (req, res) => {
+    try {
+        const min = parseInt(req.body.min_stock);
+        if (!Number.isFinite(min) || min < 0) {
+            return res.status(400).json({ error: 'Stock mínimo inválido' });
+        }
+        const r = db.prepare('UPDATE products SET min_stock = ? WHERE id = ?').run(min, req.params.id);
+        if (r.changes === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+        res.json({ message: 'Stock mínimo actualizado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Historial de movimientos de un producto (últimos 50)
+app.get('/api/products/:id/movements', (req, res) => {
+    try {
+        const rows = db.prepare(
+            'SELECT * FROM stock_movements WHERE product_id = ? ORDER BY id DESC LIMIT 50'
+        ).all(req.params.id);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Iniciar servidor

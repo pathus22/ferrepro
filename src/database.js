@@ -70,6 +70,17 @@ function initDB() {
             FOREIGN KEY (sale_id) REFERENCES sales(id),
             FOREIGN KEY (product_id) REFERENCES products(id)
         );
+
+        CREATE TABLE IF NOT EXISTS stock_movements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            type TEXT NOT NULL,                 -- entrada / salida / ajuste / venta
+            quantity INTEGER NOT NULL,          -- delta aplicado (negativo si resta)
+            stock_after INTEGER NOT NULL,
+            reason TEXT,
+            created_at DATETIME DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (product_id) REFERENCES products(id)
+        );
     `);
     console.log("Tablas inicializadas correctamente.");
 }

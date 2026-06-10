@@ -59,6 +59,9 @@
                     <button class="nav-item" data-target="view-products">
                         <i class="ph ph-package"></i> <span>Productos y Precios</span>
                     </button>
+                    <button class="nav-item" data-target="view-catalog">
+                        <i class="ph ph-tag"></i> <span>Categorías y Prov.</span>
+                    </button>
                     <button class="nav-item" data-target="view-stock">
                         <i class="ph ph-stack"></i> <span>Stock y Pedidos</span>
                     </button>
@@ -226,14 +229,77 @@
                 </div>
             </section>
 
-            <!-- View: Stock -->
+            <!-- View: Categorías y Proveedores (ABM) -->
+            <section id="view-catalog" class="view hidden">
+                <header class="view-header">
+                    <h1>Categorías y Proveedores</h1>
+                    <p class="view-desc">Administración del catálogo</p>
+                </header>
+
+                <div class="abm-grid">
+                    <!-- Categorías -->
+                    <div class="panel abm-panel">
+                        <div class="abm-header">
+                            <h2><i class="ph ph-tag"></i> Categorías</h2>
+                            <span class="abm-count" id="cat-count">0</span>
+                        </div>
+                        <form class="abm-add" onsubmit="addCategory(event)">
+                            <input type="text" id="new-category" class="form-input" placeholder="Nueva categoría..." autocomplete="off" required>
+                            <button type="submit" class="btn btn-primary"><i class="ph ph-plus"></i></button>
+                        </form>
+                        <div class="abm-list" id="categories-list"></div>
+                    </div>
+
+                    <!-- Proveedores -->
+                    <div class="panel abm-panel">
+                        <div class="abm-header">
+                            <h2><i class="ph ph-truck"></i> Proveedores</h2>
+                            <span class="abm-count" id="prov-count">0</span>
+                        </div>
+                        <form class="abm-add" onsubmit="addProvider(event)">
+                            <input type="text" id="new-provider" class="form-input" placeholder="Nuevo proveedor..." autocomplete="off" required>
+                            <button type="submit" class="btn btn-primary"><i class="ph ph-plus"></i></button>
+                        </form>
+                        <div class="abm-list" id="providers-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- View: Stock e Inventario -->
             <section id="view-stock" class="view hidden">
                 <header class="view-header">
                     <h1>Inventario y Stock</h1>
+                    <p class="view-desc">Existencias, alertas y ajustes</p>
                 </header>
-                <div class="panel empty-state">
-                    <i class="ph ph-wrench"></i>
-                    <p>Módulo de Control de Inventario en construcción.</p>
+
+                <div class="stats-grid" id="stock-stats"></div>
+
+                <div class="stock-toolbar">
+                    <div class="filter-tabs" id="stock-filters">
+                        <button class="filter-tab active" data-filter="all" onclick="setStockFilter('all')">Todos</button>
+                        <button class="filter-tab" data-filter="low" onclick="setStockFilter('low')">Stock crítico</button>
+                        <button class="filter-tab" data-filter="out" onclick="setStockFilter('out')">Sin stock</button>
+                    </div>
+                    <div class="search-bar stock-search">
+                        <i class="ph ph-magnifying-glass"></i>
+                        <input type="text" id="stock-search" placeholder="Buscar producto..." autocomplete="off" oninput="renderStockTable()">
+                    </div>
+                </div>
+
+                <div class="panel table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Stock</th>
+                                <th>Mínimo</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-tbody"></tbody>
+                    </table>
                 </div>
             </section>
 
@@ -317,6 +383,10 @@
                     <div class="form-field full">
                         <label for="product-name">Descripción</label>
                         <input type="text" id="product-name" class="form-input" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="product-min-stock">Stock mínimo <span class="opt">(alerta)</span></label>
+                        <input type="number" id="product-min-stock" class="form-input" min="0" value="0">
                     </div>
                     <div class="form-field">
                         <label for="product-cost">Costo ($)</label>
@@ -456,6 +526,53 @@
         <div class="modal-content">
             <button class="close-btn" onclick="document.getElementById('product-info-modal').classList.add('hidden')"><i class="ph ph-x"></i></button>
             <div id="product-info-content"></div>
+        </div>
+    </div>
+
+    <!-- STOCK ADJUST MODAL -->
+    <div id="stock-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeStockModal()"><i class="ph ph-x"></i></button>
+            <h2><i class="ph ph-stack" style="color: var(--amber); vertical-align: -2px;"></i> Ajustar Stock</h2>
+            <p class="stock-modal-prod" id="stock-modal-prod"></p>
+
+            <div class="stock-current">
+                <span class="k">Stock actual</span>
+                <span class="stock-current-val mono" id="stock-modal-current">0</span>
+            </div>
+
+            <input type="hidden" id="stock-modal-id">
+
+            <div class="checkout-field">
+                <label>Tipo de movimiento</label>
+                <div class="pay-methods">
+                    <button type="button" class="pay-chip move-chip active" data-move="entrada"><i class="ph ph-arrow-down"></i> Entrada</button>
+                    <button type="button" class="pay-chip move-chip" data-move="salida"><i class="ph ph-arrow-up"></i> Salida</button>
+                    <button type="button" class="pay-chip move-chip" data-move="ajuste"><i class="ph ph-pencil-simple"></i> Ajuste</button>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label id="stock-qty-label" for="stock-modal-qty">Cantidad a ingresar</label>
+                    <input type="number" id="stock-modal-qty" class="form-input" min="0" value="1" oninput="updateStockPreview()">
+                </div>
+                <div class="form-field">
+                    <label>Stock resultante</label>
+                    <div class="stock-result mono" id="stock-modal-result">—</div>
+                </div>
+                <div class="form-field full">
+                    <label for="stock-modal-reason">Motivo <span class="opt">(opcional)</span></label>
+                    <input type="text" id="stock-modal-reason" class="form-input" placeholder="Compra, ajuste de inventario, rotura…">
+                </div>
+            </div>
+
+            <p class="form-error" id="stock-modal-error" style="display: none;"></p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeStockModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="stock-modal-confirm" onclick="confirmStockAdjust()"><i class="ph ph-check-fat"></i> Aplicar</button>
+            </div>
         </div>
     </div>
 

@@ -65,6 +65,10 @@ function initNavigation() {
                 loadProductsAdmin();
             } else if (targetId === 'view-finances') {
                 initCajaView();
+            } else if (targetId === 'view-catalog') {
+                loadCatalog();
+            } else if (targetId === 'view-stock') {
+                loadStock();
             }
 
             // En mobile, cerrar el drawer al navegar
@@ -688,6 +692,7 @@ function showProductModal(product = null) {
         document.getElementById('product-cost').value = product.cost;
         document.getElementById('product-margin').value = product.profit_margin;
         document.getElementById('product-stock').value = product.stock;
+        document.getElementById('product-min-stock').value = product.min_stock || 0;
         document.getElementById('product-category').value = product.category || '';
         document.getElementById('product-brand').value = product.brand || '';
         document.getElementById('product-provider').value = product.provider || '';
@@ -700,6 +705,7 @@ function showProductModal(product = null) {
         title.textContent = 'Nuevo Producto';
         form.reset();
         document.getElementById('product-id').value = '';
+        document.getElementById('product-min-stock').value = 0;
         document.getElementById('product-sale-qty').value = 1;
         document.getElementById('product-sale-unit').value = 'unidades';
         currentPriceTiers = [];
@@ -742,6 +748,7 @@ async function saveProduct(e) {
         cost: parseFloat(document.getElementById('product-cost').value) || 0,
         profit_margin: parseFloat(document.getElementById('product-margin').value) || 0,
         stock: parseInt(document.getElementById('product-stock').value) || 0,
+        min_stock: parseInt(document.getElementById('product-min-stock').value) || 0,
         category: document.getElementById('product-category').value,
         brand: document.getElementById('product-brand').value,
         provider: document.getElementById('product-provider').value,
@@ -942,11 +949,309 @@ function toggleSaleDetail(idx) {
     caret.className = open ? 'ph ph-caret-right' : 'ph ph-caret-down';
 }
 
+// ===== ABM de Categorías y Proveedores =====
+let catalogCategories = [];
+let catalogProviders = [];
+
+async function loadCatalog() {
+    try {
+        [catalogCategories, catalogProviders] = await Promise.all([
+            fetch('/api/categories').then(r => r.json()),
+            fetch('/api/providers').then(r => r.json())
+        ]);
+        renderCatalogList('categories');
+        renderCatalogList('providers');
+    } catch (e) {
+        showToast('Error al cargar el catálogo', 'error');
+    }
+}
+
+// kind: 'categories' | 'providers'
+function renderCatalogList(kind) {
+    const isCat = kind === 'categories';
+    const items = isCat ? catalogCategories : catalogProviders;
+    const list = document.getElementById(isCat ? 'categories-list' : 'providers-list');
+    document.getElementById(isCat ? 'cat-count' : 'prov-count').textContent = items.length;
+
+    if (items.length === 0) {
+        list.innerHTML = `<p class="abm-empty">Sin ${isCat ? 'categorías' : 'proveedores'} todavía.</p>`;
+        return;
+    }
+
+    list.innerHTML = '';
+    items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'abm-item';
+        row.innerHTML = `
+            <span class="abm-name">${escapeHtml(item.name)}</span>
+            <div class="abm-actions">
+                <button class="btn-icon" title="Renombrar" onclick="editCatalogItem('${kind}', ${item.id})"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-icon danger" title="Eliminar" onclick="deleteCatalogItem('${kind}', ${item.id})"><i class="ph ph-trash"></i></button>
+            </div>
+        `;
+        list.appendChild(row);
+    });
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function addCategory(e) {
+    e.preventDefault();
+    const input = document.getElementById('new-category');
+    await createCatalogItem('categories', input.value, input);
+}
+
+async function addProvider(e) {
+    e.preventDefault();
+    const input = document.getElementById('new-provider');
+    await createCatalogItem('providers', input.value, input);
+}
+
+async function createCatalogItem(kind, name, input) {
+    name = name.trim();
+    if (!name) return;
+    try {
+        const res = await fetch(`/api/${kind}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo crear');
+        input.value = '';
+        await loadCatalog();
+        showToast(`${kind === 'categories' ? 'Categoría' : 'Proveedor'} agregado`);
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function editCatalogItem(kind, id) {
+    const items = kind === 'categories' ? catalogCategories : catalogProviders;
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const name = prompt('Nuevo nombre:', item.name);
+    if (name === null) return;
+    if (!name.trim()) { showToast('El nombre no puede estar vacío', 'error'); return; }
+    try {
+        const res = await fetch(`/api/${kind}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim() })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo renombrar');
+        await loadCatalog();
+        // El rename se propaga a productos: refrescar vistas dependientes
+        currentProducts = await fetchProducts();
+        showToast('Cambios guardados (también en los productos asociados)');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function deleteCatalogItem(kind, id) {
+    const items = kind === 'categories' ? catalogCategories : catalogProviders;
+    const item = items.find(i => i.id === id);
+    const label = kind === 'categories' ? 'la categoría' : 'el proveedor';
+    if (!confirm(`¿Eliminar ${label} "${item ? item.name : ''}"?\nLos productos no se borran, solo se quita de la lista.`)) return;
+    try {
+        const res = await fetch(`/api/${kind}/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('No se pudo eliminar');
+        await loadCatalog();
+        showToast('Eliminado');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+// ===== Módulo de Stock =====
+let stockProducts = [];
+let stockFilter = 'all';
+
+async function loadStock() {
+    stockProducts = await fetchProducts();
+    renderStockStats();
+    renderStockTable();
+}
+
+// Clasifica un producto: 'out' (sin stock) | 'low' (bajo mínimo) | 'ok'
+function stockStatus(p) {
+    if (p.stock <= 0) return 'out';
+    if (p.min_stock > 0 && p.stock <= p.min_stock) return 'low';
+    return 'ok';
+}
+
+function renderStockStats() {
+    const fmt = n => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const total = stockProducts.length;
+    const out = stockProducts.filter(p => stockStatus(p) === 'out').length;
+    const low = stockProducts.filter(p => stockStatus(p) === 'low').length;
+    const invValue = stockProducts.reduce((s, p) => s + p.cost * Math.max(p.stock, 0), 0);
+
+    document.getElementById('stock-stats').innerHTML = `
+        <div class="stat-card">
+            <span class="stat-label"><i class="ph ph-package"></i> Productos</span>
+            <span class="stat-value">${total}</span>
+        </div>
+        <div class="stat-card ${low ? 'stat-warn' : ''}">
+            <span class="stat-label"><i class="ph ph-warning"></i> Stock crítico</span>
+            <span class="stat-value">${low}</span>
+        </div>
+        <div class="stat-card ${out ? 'stat-danger' : ''}">
+            <span class="stat-label"><i class="ph ph-prohibit"></i> Sin stock</span>
+            <span class="stat-value">${out}</span>
+        </div>
+        <div class="stat-card stat-accent">
+            <span class="stat-label"><i class="ph ph-currency-circle-dollar"></i> Valor inventario (costo)</span>
+            <span class="stat-value">${fmt(invValue)}</span>
+        </div>
+    `;
+}
+
+function setStockFilter(f) {
+    stockFilter = f;
+    document.querySelectorAll('#stock-filters .filter-tab')
+        .forEach(t => t.classList.toggle('active', t.dataset.filter === f));
+    renderStockTable();
+}
+
+function renderStockTable() {
+    const tbody = document.getElementById('stock-tbody');
+    const term = (document.getElementById('stock-search').value || '').toLowerCase();
+
+    let list = stockProducts.filter(p => {
+        const st = stockStatus(p);
+        if (stockFilter === 'low' && st !== 'low') return false;
+        if (stockFilter === 'out' && st !== 'out') return false;
+        return true;
+    });
+    if (term) {
+        list = list.filter(p =>
+            p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term));
+    }
+
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:2rem;">Sin productos en esta vista.</td></tr>';
+        return;
+    }
+
+    const badges = {
+        out: '<span class="stock-badge badge-out">Sin stock</span>',
+        low: '<span class="stock-badge badge-low">Crítico</span>',
+        ok: '<span class="stock-badge badge-ok">OK</span>'
+    };
+
+    tbody.innerHTML = '';
+    list.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
+        const st = stockStatus(p);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="num">${p.code}</td>
+            <td><strong>${escapeHtml(p.name)}</strong><div class="stock-sub">${escapeHtml(p.category || '—')}</div></td>
+            <td class="num"><span class="stock-qty ${st}">${p.stock}</span></td>
+            <td class="num">${p.min_stock || '—'}</td>
+            <td>${badges[st]}</td>
+            <td class="td-actions">
+                <button class="btn btn-secondary btn-sm" onclick='openStockModal(${JSON.stringify(p)})'><i class="ph ph-sliders"></i> Ajustar</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// --- Modal de ajuste de stock ---
+let stockMoveType = 'entrada';
+
+function openStockModal(p) {
+    document.getElementById('stock-modal-id').value = p.id;
+    document.getElementById('stock-modal-prod').textContent = `${p.name} · Cód. ${p.code}`;
+    document.getElementById('stock-modal-current').textContent = p.stock;
+    document.getElementById('stock-modal-current').dataset.stock = p.stock;
+    document.getElementById('stock-modal-qty').value = 1;
+    document.getElementById('stock-modal-reason').value = '';
+    document.getElementById('stock-modal-error').style.display = 'none';
+    document.getElementById('stock-modal-confirm').disabled = false;
+    setStockMoveType('entrada');
+    document.getElementById('stock-modal').classList.remove('hidden');
+}
+
+function closeStockModal() {
+    document.getElementById('stock-modal').classList.add('hidden');
+}
+
+function setStockMoveType(type) {
+    stockMoveType = type;
+    document.querySelectorAll('.move-chip')
+        .forEach(c => c.classList.toggle('active', c.dataset.move === type));
+    const label = document.getElementById('stock-qty-label');
+    label.textContent = type === 'entrada' ? 'Cantidad a ingresar'
+        : type === 'salida' ? 'Cantidad a retirar'
+        : 'Nuevo valor de stock';
+    updateStockPreview();
+}
+
+function updateStockPreview() {
+    const current = parseInt(document.getElementById('stock-modal-current').dataset.stock) || 0;
+    const qty = parseInt(document.getElementById('stock-modal-qty').value) || 0;
+    let result;
+    if (stockMoveType === 'entrada') result = current + qty;
+    else if (stockMoveType === 'salida') result = current - qty;
+    else result = qty;
+    const el = document.getElementById('stock-modal-result');
+    el.textContent = result;
+    el.classList.toggle('negative', result < 0);
+}
+
+async function confirmStockAdjust() {
+    const id = document.getElementById('stock-modal-id').value;
+    const qty = parseInt(document.getElementById('stock-modal-qty').value);
+    const reason = document.getElementById('stock-modal-reason').value;
+    const errEl = document.getElementById('stock-modal-error');
+    const btn = document.getElementById('stock-modal-confirm');
+
+    if (!Number.isFinite(qty) || qty < 0) {
+        errEl.textContent = 'Ingresá una cantidad válida.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    errEl.style.display = 'none';
+    try {
+        const res = await fetch(`/api/products/${id}/stock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: stockMoveType, quantity: qty, reason })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo ajustar el stock');
+
+        closeStockModal();
+        await loadStock();          // refresca tabla y tarjetas
+        currentProducts = await fetchProducts(); // mantiene el POS al día
+        showToast(`Stock actualizado: ${data.stock} u.`);
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+    }
+}
+
+function initStockModal() {
+    document.querySelectorAll('.move-chip').forEach(chip => {
+        chip.addEventListener('click', () => setStockMoveType(chip.dataset.move));
+    });
+}
+
 // Boot
 document.addEventListener('DOMContentLoaded', () => {
     initClock();
     initNavigation();
     initCheckout();
+    initStockModal();
     initPOS();
 
     // Handle enter key in password field
