@@ -81,6 +81,26 @@ function initDB() {
             created_at DATETIME DEFAULT (datetime('now','localtime')),
             FOREIGN KEY (product_id) REFERENCES products(id)
         );
+
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT,
+            status TEXT NOT NULL DEFAULT 'pendiente',  -- pendiente / recibido_parcial / recibido
+            total REAL DEFAULT 0,
+            created_at DATETIME DEFAULT (datetime('now','localtime')),
+            received_at DATETIME
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            product_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            qty_received INTEGER NOT NULL DEFAULT 0,
+            cost REAL NOT NULL DEFAULT 0,
+            FOREIGN KEY (order_id) REFERENCES purchase_orders(id),
+            FOREIGN KEY (product_id) REFERENCES products(id)
+        );
     `);
     console.log("Tablas inicializadas correctamente.");
 }

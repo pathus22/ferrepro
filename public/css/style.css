@@ -1676,6 +1676,119 @@ body {
 }
 .stock-result.negative { color: var(--red); }
 
+/* ============ PEDIDOS A PROVEEDOR ============ */
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 1.2rem 0 0.8rem;
+}
+.section-title i { color: var(--amber); }
+
+.orders-suggest { border-radius: var(--radius); padding: 1rem; margin-bottom: 0.5rem; }
+
+.suggest-group {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.7rem;
+    overflow: hidden;
+}
+.suggest-group:last-child { margin-bottom: 0; }
+
+.suggest-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--panel-2);
+    flex-wrap: wrap;
+}
+.suggest-group-head > div { display: flex; align-items: center; gap: 0.5rem; }
+.suggest-group-head i { color: var(--amber); font-size: 1.2rem; }
+
+.suggest-prod-count {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--panel-3);
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.suggest-items { padding: 0.5rem 0.9rem; }
+
+.suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.suggest-item:last-child { border-bottom: none; }
+.suggest-name { flex: 1; min-width: 160px; font-size: 0.88rem; }
+.suggest-code { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); margin-left: 0.4rem; }
+.suggest-stock { font-family: var(--font-mono); font-size: 0.78rem; }
+.suggest-stock.out { color: var(--red); }
+.suggest-stock.low { color: var(--amber); }
+.suggest-qty { font-size: 0.8rem; color: var(--muted); }
+.suggest-qty strong { color: var(--green); font-family: var(--font-mono); }
+
+/* Tablas de los modales de pedido / recepción */
+.order-items-table { margin: 0.4rem 0 0.8rem; }
+
+.order-row, .receive-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px 74px 80px minmax(96px, auto) 30px;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.receive-row { grid-template-columns: minmax(0, 1fr) 70px 84px 104px; }
+
+.order-row-head, .receive-row-head {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border-strong);
+}
+.order-row-head span:not(:first-child),
+.receive-row-head span:not(:first-child) { text-align: right; }
+
+.order-prod { display: flex; flex-direction: column; min-width: 0; }
+.order-prod strong { font-size: 0.85rem; line-height: 1.2; }
+.order-code { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
+
+.order-input {
+    padding: 0.4rem 0.5rem;
+    min-height: 36px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    text-align: right;
+}
+.order-subtotal { font-family: var(--font-mono); font-size: 0.82rem; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.order-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.7rem 0.2rem 0;
+    border-top: 1px dashed var(--border-strong);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.order-total { font-size: 1.3rem; color: var(--green); }
+
 /* ============ RESPONSIVE ============ */
 
 /* Pantallas bajas (notebooks 1366x768): compactar verticalmente */
@@ -1871,4 +1984,10 @@ body {
 
     .modal-actions { flex-direction: column-reverse; }
     .modal-actions .btn { width: 100%; }
+
+    /* Tablas de pedido/recepción: scroll horizontal en pantallas chicas */
+    .order-items-table { overflow-x: auto; }
+    .order-row, .receive-row { min-width: 420px; }
+    .suggest-group-head { gap: 0.5rem; }
+    .suggest-group-head .btn { flex: 1; }
 }

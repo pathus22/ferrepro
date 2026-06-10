@@ -6,6 +6,9 @@
 - [HECHO 2026-06-10] Módulo de Inventario y Stock (ajustes entrada/salida/ajuste,
     stock mínimo, alertas, filtros, trazabilidad de movimientos). Falta: depósito
     Galpón/Local (necesita definición) e informe exportable.
+- [HECHO 2026-06-10] Módulo de Pedidos a proveedor (sugerencias de reposición por
+    proveedor, borrador editable, estados pendiente/parcial/recibido, recepción que
+    suma stock y registra costo, impresión/PDF). Falta: exportar a Excel.
 - Construir el Módulo de Corredores y Cuentas Claras
 - Construir el Módulo de Finanzas y Cajas
     [PARCIAL 2026-06-10] Caja e Historial listo (resumen diario, desglose por medio

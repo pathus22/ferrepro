@@ -329,6 +329,150 @@ app.get('/api/products/:id/movements', (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ===== PEDIDOS A PROVEEDOR =====
+
+// Sugerencias de reposición: productos sin stock o en/bajo el mínimo, agrupados por proveedor.
+// suggested = cantidad sugerida a pedir para llegar a 2x el mínimo (o 1 si no hay mínimo).
+app.get('/api/restock-suggestions', (req, res) => {
+    try {
+        const rows = db.prepare(`
+            SELECT id, code, name, provider, stock, min_stock, cost
+            FROM products
+            WHERE stock <= 0 OR (min_stock > 0 AND stock <= min_stock)
+            ORDER BY provider COLLATE NOCASE, name COLLATE NOCASE
+        `).all();
+
+        const groups = {};
+        rows.forEach(p => {
+            const prov = (p.provider && p.provider.trim()) ? p.provider.trim() : 'Sin proveedor';
+            if (!groups[prov]) groups[prov] = [];
+            const target = p.min_stock > 0 ? p.min_stock * 2 : 1;
+            const suggested = Math.max(target - p.stock, 1);
+            groups[prov].push({ ...p, suggested });
+        });
+
+        res.json(Object.entries(groups).map(([provider, items]) => ({ provider, items })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Listar pedidos (con conteo de ítems)
+app.get('/api/purchase-orders', (req, res) => {
+    try {
+        const orders = db.prepare('SELECT * FROM purchase_orders ORDER BY id DESC').all();
+        const stats = db.prepare(
+            'SELECT COUNT(*) c, COALESCE(SUM(quantity),0) q FROM purchase_order_items WHERE order_id = ?'
+        );
+        orders.forEach(o => { const s = stats.get(o.id); o.item_count = s.c; o.total_qty = s.q; });
+        res.json(orders);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Detalle de un pedido (con sus ítems)
+app.get('/api/purchase-orders/:id', (req, res) => {
+    try {
+        const order = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+        if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+        order.items = db.prepare(`
+            SELECT poi.*, p.code, p.name, p.stock
+            FROM purchase_order_items poi LEFT JOIN products p ON p.id = poi.product_id
+            WHERE poi.order_id = ?`).all(order.id);
+        res.json(order);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Crear pedido
+app.post('/api/purchase-orders', (req, res) => {
+    try {
+        const { provider, items } = req.body;
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: 'El pedido no tiene ítems' });
+        }
+        const valid = items.filter(it => parseInt(it.quantity) > 0);
+        if (valid.length === 0) return res.status(400).json({ error: 'Ninguna cantidad válida' });
+
+        const total = valid.reduce((s, it) => s + (parseFloat(it.cost) || 0) * parseInt(it.quantity), 0);
+        const insOrder = db.prepare("INSERT INTO purchase_orders (provider, status, total) VALUES (?, 'pendiente', ?)");
+        const insItem = db.prepare('INSERT INTO purchase_order_items (order_id, product_id, quantity, cost) VALUES (?, ?, ?, ?)');
+
+        const id = db.transaction(() => {
+            const r = insOrder.run(provider || 'Sin proveedor', total);
+            const oid = r.lastInsertRowid;
+            valid.forEach(it => insItem.run(oid, it.product_id, parseInt(it.quantity), parseFloat(it.cost) || 0));
+            return oid;
+        })();
+
+        res.json({ id, message: 'Pedido creado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Recibir mercadería (parcial o total): suma stock, registra movimiento y costo de compra
+app.post('/api/purchase-orders/:id/receive', (req, res) => {
+    try {
+        const order = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+        if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+        if (order.status === 'recibido') return res.status(400).json({ error: 'El pedido ya fue recibido por completo' });
+
+        const received = req.body.items || []; // [{ item_id, qty_received }]
+        const getItem = db.prepare('SELECT * FROM purchase_order_items WHERE id = ? AND order_id = ?');
+        const getProd = db.prepare('SELECT id, stock, cost FROM products WHERE id = ?');
+        const updItem = db.prepare('UPDATE purchase_order_items SET qty_received = qty_received + ? WHERE id = ?');
+        const updStock = db.prepare(
+            "UPDATE products SET stock = stock + ?, cost = ?, previous_cost = ?, last_cost_update = datetime('now','localtime') WHERE id = ?"
+        );
+        const logMov = db.prepare(
+            "INSERT INTO stock_movements (product_id, type, quantity, stock_after, reason) VALUES (?, 'entrada', ?, ?, ?)"
+        );
+
+        const applied = db.transaction(() => {
+            let count = 0;
+            for (const r of received) {
+                const qty = parseInt(r.qty_received);
+                if (!Number.isFinite(qty) || qty <= 0) continue;
+                const item = getItem.get(r.item_id, order.id);
+                if (!item) continue;
+                const prod = getProd.get(item.product_id);
+                if (!prod) continue;
+                const newStock = prod.stock + qty;
+                // Registrar costo de compra solo si el pedido trae un costo > 0
+                const newCost = item.cost > 0 ? item.cost : prod.cost;
+                updStock.run(qty, newCost, prod.cost, item.product_id);
+                updItem.run(qty, item.id);
+                logMov.run(item.product_id, qty, newStock, `Recepción pedido #${order.id}`);
+                count++;
+            }
+
+            // Recalcular estado del pedido
+            const its = db.prepare('SELECT quantity, qty_received FROM purchase_order_items WHERE order_id = ?').all(order.id);
+            const allDone = its.every(i => i.qty_received >= i.quantity);
+            const anyDone = its.some(i => i.qty_received > 0);
+            const status = allDone ? 'recibido' : (anyDone ? 'recibido_parcial' : 'pendiente');
+            db.prepare(
+                "UPDATE purchase_orders SET status = ?, received_at = CASE WHEN ? = 'recibido' THEN datetime('now','localtime') ELSE received_at END WHERE id = ?"
+            ).run(status, status, order.id);
+            return count;
+        })();
+
+        if (applied === 0) return res.status(400).json({ error: 'No se indicó ninguna cantidad a recibir' });
+        res.json({ message: 'Recepción registrada' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Eliminar pedido (solo si sigue pendiente, sin mercadería recibida)
+app.delete('/api/purchase-orders/:id', (req, res) => {
+    try {
+        const order = db.prepare('SELECT status FROM purchase_orders WHERE id = ?').get(req.params.id);
+        if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+        if (order.status !== 'pendiente') {
+            return res.status(400).json({ error: 'No se puede eliminar un pedido con mercadería ya recibida' });
+        }
+        db.transaction(() => {
+            db.prepare('DELETE FROM purchase_order_items WHERE order_id = ?').run(req.params.id);
+            db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(req.params.id);
+        })();
+        res.json({ message: 'Pedido eliminado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Iniciar servidor
 app.listen(PORT, () => {
     console.log(`Servidor local corriendo en http://localhost:${PORT}`);

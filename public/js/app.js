@@ -69,6 +69,8 @@ function initNavigation() {
                 loadCatalog();
             } else if (targetId === 'view-stock') {
                 loadStock();
+            } else if (targetId === 'view-orders') {
+                loadOrders();
             }
 
             // En mobile, cerrar el drawer al navegar
@@ -1244,6 +1246,329 @@ function initStockModal() {
     document.querySelectorAll('.move-chip').forEach(chip => {
         chip.addEventListener('click', () => setStockMoveType(chip.dataset.move));
     });
+}
+
+// ===== Módulo de Pedidos a Proveedor =====
+const ORDER_STATUS = {
+    pendiente: { label: 'Pendiente', cls: 'badge-low' },
+    recibido_parcial: { label: 'Recibido parcial', cls: 'badge-scaled' },
+    recibido: { label: 'Recibido', cls: 'badge-ok' }
+};
+const money = n => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+async function loadOrders() {
+    await Promise.all([loadSuggestions(), loadOrdersList()]);
+}
+
+// --- Sugerencias de reposición ---
+async function loadSuggestions() {
+    const container = document.getElementById('suggest-content');
+    container.innerHTML = '<p class="abm-empty">Cargando...</p>';
+    try {
+        const groups = await fetch('/api/restock-suggestions').then(r => r.json());
+        const totalProducts = groups.reduce((s, g) => s + g.items.length, 0);
+        document.getElementById('suggest-count').textContent = totalProducts;
+
+        if (groups.length === 0) {
+            container.innerHTML = '<p class="abm-empty"><i class="ph ph-check-circle" style="color:var(--green);"></i> No hay productos por debajo del mínimo. Todo en orden.</p>';
+            return;
+        }
+
+        container.innerHTML = groups.map(g => `
+            <div class="suggest-group">
+                <div class="suggest-group-head">
+                    <div>
+                        <i class="ph ph-truck"></i>
+                        <strong>${escapeHtml(g.provider)}</strong>
+                        <span class="suggest-prod-count">${g.items.length} ${g.items.length === 1 ? 'producto' : 'productos'}</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick='openOrderDraft(${JSON.stringify(g).replace(/'/g, "&#39;")})'>
+                        <i class="ph ph-plus"></i> Generar pedido
+                    </button>
+                </div>
+                <div class="suggest-items">
+                    ${g.items.map(p => `
+                        <div class="suggest-item">
+                            <span class="suggest-name">${escapeHtml(p.name)} <span class="suggest-code">${p.code}</span></span>
+                            <span class="suggest-stock ${p.stock <= 0 ? 'out' : 'low'}">Stock: ${p.stock}${p.min_stock ? ' / mín ' + p.min_stock : ''}</span>
+                            <span class="suggest-qty">sugerido: <strong>${p.suggested}</strong></span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = '<p class="abm-empty" style="color:var(--red);">Error al cargar sugerencias</p>';
+    }
+}
+
+// --- Listado de pedidos ---
+async function loadOrdersList() {
+    const tbody = document.getElementById('orders-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);">Cargando...</td></tr>';
+    try {
+        const orders = await fetch('/api/purchase-orders').then(r => r.json());
+        if (orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem;">Todavía no hay pedidos registrados.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        orders.forEach(o => {
+            const st = ORDER_STATUS[o.status] || ORDER_STATUS.pendiente;
+            const date = (o.created_at || '').slice(0, 16).replace('T', ' ');
+            const canReceive = o.status !== 'recibido';
+            const canDelete = o.status === 'pendiente';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="num">#${o.id}</td>
+                <td class="num">${date}</td>
+                <td>${escapeHtml(o.provider || '—')}</td>
+                <td class="num">${o.item_count} (${o.total_qty} u.)</td>
+                <td><span class="stock-badge ${st.cls}">${st.label}</span></td>
+                <td class="num">${money(o.total)}</td>
+                <td class="td-actions">
+                    <button class="btn-icon" title="Imprimir / PDF" onclick="printOrder(${o.id})"><i class="ph ph-printer"></i></button>
+                    ${canReceive ? `<button class="btn-icon" title="Recibir mercadería" style="color:var(--green);" onclick="openReceiveModal(${o.id})"><i class="ph ph-package"></i></button>` : ''}
+                    ${canDelete ? `<button class="btn-icon danger" title="Eliminar" onclick="deleteOrder(${o.id})"><i class="ph ph-trash"></i></button>` : ''}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--red);">Error al cargar pedidos</td></tr>';
+    }
+}
+
+// --- Borrador de pedido (modal editable) ---
+let orderDraft = { provider: '', items: [] };
+
+function openOrderDraft(group) {
+    orderDraft = {
+        provider: group.provider,
+        items: group.items.map(p => ({
+            product_id: p.id, code: p.code, name: p.name, stock: p.stock,
+            quantity: p.suggested, cost: p.cost
+        }))
+    };
+    document.getElementById('order-modal-provider').textContent = group.provider;
+    document.getElementById('order-error').style.display = 'none';
+    document.getElementById('order-save-btn').disabled = false;
+    renderOrderItems();
+    document.getElementById('order-modal').classList.remove('hidden');
+}
+
+function renderOrderItems() {
+    const container = document.getElementById('order-items');
+    if (orderDraft.items.length === 0) {
+        container.innerHTML = '<p class="abm-empty">No quedan ítems en el pedido.</p>';
+    } else {
+        container.innerHTML = '';
+        orderDraft.items.forEach((it, i) => {
+            const row = document.createElement('div');
+            row.className = 'order-row';
+            row.innerHTML = `
+                <span class="order-prod"><strong>${escapeHtml(it.name)}</strong><span class="order-code">${it.code}</span></span>
+                <span class="num">${it.stock}</span>
+                <input type="number" class="form-input order-input" min="1" value="${it.quantity}" onchange="updateOrderItem(${i}, 'quantity', this.value)">
+                <input type="number" class="form-input order-input" min="0" step="0.01" value="${it.cost}" onchange="updateOrderItem(${i}, 'cost', this.value)">
+                <span class="num order-subtotal" id="order-sub-${i}">${money(it.quantity * it.cost)}</span>
+                <button class="btn-icon danger" title="Quitar" onclick="removeOrderItem(${i})"><i class="ph ph-x"></i></button>
+            `;
+            container.appendChild(row);
+        });
+    }
+    updateOrderTotal();
+}
+
+function updateOrderItem(i, field, value) {
+    orderDraft.items[i][field] = field === 'cost' ? (parseFloat(value) || 0) : (parseInt(value) || 0);
+    const sub = document.getElementById(`order-sub-${i}`);
+    if (sub) sub.textContent = money(orderDraft.items[i].quantity * orderDraft.items[i].cost);
+    updateOrderTotal();
+}
+
+function removeOrderItem(i) {
+    orderDraft.items.splice(i, 1);
+    renderOrderItems();
+}
+
+function updateOrderTotal() {
+    const total = orderDraft.items.reduce((s, it) => s + it.quantity * it.cost, 0);
+    document.getElementById('order-total').textContent = money(total);
+}
+
+function closeOrderModal() {
+    document.getElementById('order-modal').classList.add('hidden');
+}
+
+async function saveOrder() {
+    const errEl = document.getElementById('order-error');
+    const btn = document.getElementById('order-save-btn');
+    const items = orderDraft.items.filter(it => it.quantity > 0);
+    if (items.length === 0) {
+        errEl.textContent = 'El pedido no tiene ítems con cantidad válida.';
+        errEl.style.display = 'block';
+        return;
+    }
+    btn.disabled = true;
+    errEl.style.display = 'none';
+    try {
+        const res = await fetch('/api/purchase-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: orderDraft.provider,
+                items: items.map(it => ({ product_id: it.product_id, quantity: it.quantity, cost: it.cost }))
+            })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo guardar el pedido');
+        closeOrderModal();
+        await loadOrders();
+        showToast(`Pedido #${data.id} creado`);
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+    }
+}
+
+async function deleteOrder(id) {
+    if (!confirm(`¿Eliminar el pedido #${id}? Esta acción no se puede deshacer.`)) return;
+    try {
+        const res = await fetch(`/api/purchase-orders/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo eliminar');
+        await loadOrders();
+        showToast('Pedido eliminado');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+// --- Recepción de mercadería ---
+let receiveOrder = null;
+
+async function openReceiveModal(id) {
+    try {
+        receiveOrder = await fetch(`/api/purchase-orders/${id}`).then(r => r.json());
+        document.getElementById('receive-order-num').textContent = `#${receiveOrder.id}`;
+        document.getElementById('receive-error').style.display = 'none';
+        document.getElementById('receive-confirm-btn').disabled = false;
+
+        const container = document.getElementById('receive-items');
+        container.innerHTML = '';
+        receiveOrder.items.forEach((it, i) => {
+            const pending = it.quantity - it.qty_received;
+            const row = document.createElement('div');
+            row.className = 'receive-row';
+            row.innerHTML = `
+                <span class="order-prod"><strong>${escapeHtml(it.name || '—')}</strong><span class="order-code">${it.code || ''}</span></span>
+                <span class="num">${it.quantity}</span>
+                <span class="num">${it.qty_received}</span>
+                <input type="number" class="form-input order-input" min="0" max="${pending}" value="${pending}" data-item="${it.id}" id="receive-qty-${i}">
+            `;
+            container.appendChild(row);
+        });
+        document.getElementById('receive-modal').classList.remove('hidden');
+    } catch (e) {
+        showToast('Error al abrir el pedido', 'error');
+    }
+}
+
+function fillReceiveAll() {
+    if (!receiveOrder) return;
+    receiveOrder.items.forEach((it, i) => {
+        const input = document.getElementById(`receive-qty-${i}`);
+        if (input) input.value = it.quantity - it.qty_received;
+    });
+}
+
+function closeReceiveModal() {
+    document.getElementById('receive-modal').classList.add('hidden');
+    receiveOrder = null;
+}
+
+async function confirmReceive() {
+    const errEl = document.getElementById('receive-error');
+    const btn = document.getElementById('receive-confirm-btn');
+    const items = [];
+    document.querySelectorAll('#receive-items input[data-item]').forEach(inp => {
+        const qty = parseInt(inp.value) || 0;
+        if (qty > 0) items.push({ item_id: parseInt(inp.dataset.item), qty_received: qty });
+    });
+    if (items.length === 0) {
+        errEl.textContent = 'Indicá al menos una cantidad a recibir.';
+        errEl.style.display = 'block';
+        return;
+    }
+    btn.disabled = true;
+    errEl.style.display = 'none';
+    try {
+        const res = await fetch(`/api/purchase-orders/${receiveOrder.id}/receive`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo registrar la recepción');
+        closeReceiveModal();
+        await loadOrders();
+        currentProducts = await fetchProducts(); // POS al día con el stock nuevo
+        showToast('Recepción registrada · stock actualizado');
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+    }
+}
+
+// --- Impresión / PDF de un pedido (ventana imprimible, sin dependencias) ---
+async function printOrder(id) {
+    try {
+        const o = await fetch(`/api/purchase-orders/${id}`).then(r => r.json());
+        const rows = o.items.map(it => `
+            <tr>
+                <td>${it.code || ''}</td>
+                <td>${escapeHtml(it.name || '')}</td>
+                <td style="text-align:right;">${it.quantity}</td>
+                <td style="text-align:right;">${money(it.cost)}</td>
+                <td style="text-align:right;">${money(it.quantity * it.cost)}</td>
+            </tr>`).join('');
+        const win = window.open('', '_blank', 'width=800,height=900');
+        win.document.write(`
+            <html><head><title>Pedido #${o.id}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 30px; color: #1a1a1a; }
+                h1 { margin: 0 0 4px; }
+                .muted { color: #666; font-size: 13px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 14px; }
+                th { text-align: left; background: #f4f4f4; }
+                tfoot td { font-weight: bold; border-top: 2px solid #333; }
+                .head { display: flex; justify-content: space-between; align-items: flex-start; }
+            </style></head><body>
+            <div class="head">
+                <div>
+                    <h1>Pedido de compra #${o.id}</h1>
+                    <div class="muted">Proveedor: <strong>${escapeHtml(o.provider || '—')}</strong></div>
+                    <div class="muted">Fecha: ${(o.created_at || '').slice(0, 16)}</div>
+                </div>
+                <div style="text-align:right;"><strong>FerrePro</strong><br><span class="muted">Pedido a proveedor</span></div>
+            </div>
+            <table>
+                <thead><tr><th>Código</th><th>Descripción</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">Costo u.</th><th style="text-align:right;">Subtotal</th></tr></thead>
+                <tbody>${rows}</tbody>
+                <tfoot><tr><td colspan="4" style="text-align:right;">TOTAL</td><td style="text-align:right;">${money(o.total)}</td></tr></tfoot>
+            </table>
+            <p class="muted" style="margin-top:40px;">Generado por FerrePro</p>
+            </body></html>`);
+        win.document.close();
+        win.focus();
+        setTimeout(() => win.print(), 350);
+    } catch (e) {
+        showToast('Error al generar el documento', 'error');
+    }
 }
 
 // Boot

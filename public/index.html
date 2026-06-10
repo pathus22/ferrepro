@@ -63,7 +63,10 @@
                         <i class="ph ph-tag"></i> <span>Categorías y Prov.</span>
                     </button>
                     <button class="nav-item" data-target="view-stock">
-                        <i class="ph ph-stack"></i> <span>Stock y Pedidos</span>
+                        <i class="ph ph-stack"></i> <span>Stock e Inventario</span>
+                    </button>
+                    <button class="nav-item" data-target="view-orders">
+                        <i class="ph ph-clipboard-text"></i> <span>Pedidos a Prov.</span>
                     </button>
                     <button class="nav-item" data-target="view-corridors">
                         <i class="ph ph-users-three"></i> <span>Corredores</span>
@@ -299,6 +302,45 @@
                             </tr>
                         </thead>
                         <tbody id="stock-tbody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- View: Pedidos a Proveedor -->
+            <section id="view-orders" class="view hidden">
+                <header class="view-header">
+                    <h1>Pedidos a Proveedor</h1>
+                    <p class="view-desc">Reposición de stock y recepción de mercadería</p>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="loadOrders()"><i class="ph ph-arrow-clockwise"></i> Actualizar</button>
+                    </div>
+                </header>
+
+                <!-- Reposición sugerida -->
+                <div class="panel orders-suggest">
+                    <div class="abm-header">
+                        <h2><i class="ph ph-lightbulb"></i> Reposición sugerida</h2>
+                        <span class="abm-count" id="suggest-count">0</span>
+                    </div>
+                    <div id="suggest-content"></div>
+                </div>
+
+                <!-- Historial de pedidos -->
+                <h2 class="section-title"><i class="ph ph-clipboard-text"></i> Pedidos registrados</h2>
+                <div class="panel table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Fecha</th>
+                                <th>Proveedor</th>
+                                <th>Ítems</th>
+                                <th>Estado</th>
+                                <th>Total</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-tbody"></tbody>
                     </table>
                 </div>
             </section>
@@ -572,6 +614,66 @@
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" onclick="closeStockModal()">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="stock-modal-confirm" onclick="confirmStockAdjust()"><i class="ph ph-check-fat"></i> Aplicar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ORDER (create/edit draft) MODAL -->
+    <div id="order-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-lg">
+            <button class="close-btn" onclick="closeOrderModal()"><i class="ph ph-x"></i></button>
+            <h2><i class="ph ph-clipboard-text" style="color: var(--amber); vertical-align: -2px;"></i> Nuevo Pedido</h2>
+            <p class="stock-modal-prod">Proveedor: <strong id="order-modal-provider"></strong></p>
+
+            <div class="order-items-table">
+                <div class="order-row order-row-head">
+                    <span>Producto</span>
+                    <span>Stock</span>
+                    <span>Cantidad</span>
+                    <span>Costo u.</span>
+                    <span>Subtotal</span>
+                    <span></span>
+                </div>
+                <div id="order-items"></div>
+            </div>
+
+            <div class="order-total-row">
+                <span>Total estimado</span>
+                <span class="order-total mono" id="order-total">$0.00</span>
+            </div>
+
+            <p class="form-error" id="order-error" style="display: none;"></p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeOrderModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="order-save-btn" onclick="saveOrder()"><i class="ph ph-check-fat"></i> Guardar pedido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- RECEIVE MERCHANDISE MODAL -->
+    <div id="receive-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-lg">
+            <button class="close-btn" onclick="closeReceiveModal()"><i class="ph ph-x"></i></button>
+            <h2><i class="ph ph-package" style="color: var(--amber); vertical-align: -2px;"></i> Recibir Pedido <span id="receive-order-num" class="mono"></span></h2>
+            <p class="stock-modal-prod">Indicá cuántas unidades llegaron de cada producto. Se sumarán al stock.</p>
+
+            <div class="order-items-table">
+                <div class="receive-row receive-row-head">
+                    <span>Producto</span>
+                    <span>Pedido</span>
+                    <span>Ya recibido</span>
+                    <span>Recibir ahora</span>
+                </div>
+                <div id="receive-items"></div>
+            </div>
+
+            <p class="form-error" id="receive-error" style="display: none;"></p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeReceiveModal()">Cancelar</button>
+                <button type="button" class="btn btn-secondary" onclick="fillReceiveAll()"><i class="ph ph-check-square"></i> Recibir todo</button>
+                <button type="button" class="btn btn-primary" id="receive-confirm-btn" onclick="confirmReceive()"><i class="ph ph-check-fat"></i> Confirmar recepción</button>
             </div>
         </div>
     </div>

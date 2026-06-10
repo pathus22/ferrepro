@@ -167,12 +167,15 @@ FASE 3 — CORREDORES, STOCK Y PEDIDOS
   [ ] Trazabilidad por usuario (quién movió) — depende de auth server-side
 
 [ MÓDULO DE PEDIDOS A PROVEEDOR ]
-  [ ] Algoritmo que detecta productos bajo stock mínimo
-  [ ] Generación automática de borrador de pedido por proveedor
-  [ ] Edición manual del pedido antes de enviarlo
-  [ ] Exportación del pedido a PDF o Excel
-  [ ] Registro del pedido enviado y su estado (pendiente, recibido parcial, completo)
-  [ ] Recepción de mercadería: actualiza stock y registra costo de compra
+  [x] Algoritmo que detecta productos bajo stock mínimo o sin stock — 2026-06-10
+      (GET /api/restock-suggestions, agrupa por proveedor, sugiere cantidad)
+  [x] Generación de borrador de pedido por proveedor desde la sugerencia
+  [x] Edición manual del pedido antes de guardarlo (cantidad, costo, quitar ítems)
+  [x] Exportación del pedido a PDF (ventana imprimible → Guardar como PDF, sin libs)
+  [x] Registro del pedido y su estado: pendiente / recibido_parcial / recibido
+  [x] Recepción de mercadería (parcial o total): suma stock, registra movimiento
+      'entrada' y guarda el costo de compra (previous_cost + last_cost_update)
+  [ ] Exportación a Excel (XLSX) del pedido — pendiente
 
 --------------------------------------------------------------------------------
 FASE 4 — ADMINISTRACIÓN Y FINANZAS
@@ -253,8 +256,8 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~15 ítems
 
   FASE 3 — Corredores, Stock y Pedidos
-    Completados:  ~6 ítems (Módulo de Stock: ajustes, alertas, trazabilidad)
-    Pendientes:   ~16 ítems
+    Completados:  ~12 ítems (Stock completo + Pedidos a proveedor completo)
+    Pendientes:   ~10 ítems
 
   FASE 4 — Finanzas y Administración
     Completados:  ~4 ítems (Caja e Historial: resumen diario + desglose por medio)
@@ -264,8 +267,8 @@ RESUMEN CUANTITATIVO
     Completados:  ~9 ítems
     Pendientes:   ~9 ítems
 
-  TOTAL GENERAL: ~60 completados / ~74 pendientes
-  Avance estimado: ~45% del sistema completo
+  TOTAL GENERAL: ~66 completados / ~68 pendientes
+  Avance estimado: ~49% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
@@ -281,9 +284,9 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
      valor inventario), ajustes entrada/salida/ajuste con motivo, stock mínimo
      editable, alertas y filtros, trazabilidad de movimientos (stock_movements).
 
-  4. Módulo de Pedidos a proveedor (ya hay base: detección de bajo stock mínimo
-     y agrupación por proveedor) → borrador de pedido por proveedor + recepción
-     de mercadería (que actualiza stock y costo).
+  4. [HECHO 2026-06-10] Módulo de Pedidos a proveedor completo: detección de
+     faltantes agrupada por proveedor, borrador editable, guardado con estado,
+     recepción parcial/total (suma stock + costo), impresión/PDF del pedido.
 
   5. Implementar importación de Excel con mapeo dinámico
      → Desbloquea: carga masiva de catálogos de proveedores
@@ -291,8 +294,8 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
   6. Construir Módulo de Corredores
      → Desbloquea: ventas a cuenta corriente y listas de precios
 
-  7. Implementar generación de PDF (presupuesto y ticket no fiscal)
-     → Desbloquea: impresión y comprobantes
+  7. Implementar generación de PDF del presupuesto/ticket de venta
+     (el pedido a proveedor ya tiene impresión; falta el del POS)
 
   8. Completar Finanzas (apertura/cierre de caja, gastos, cuentas a pagar) y
      Dashboard con estadísticas (ya hay datos de ventas reales en la DB)
