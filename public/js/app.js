@@ -1,11 +1,46 @@
 // Clock Initialization
 function initClock() {
     const clockEl = document.getElementById('clock');
-    setInterval(() => {
+    const update = () => {
         const now = new Date();
         const options = { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
         clockEl.textContent = now.toLocaleDateString('es-AR', options);
-    }, 1000);
+    };
+    update();
+    setInterval(update, 1000);
+}
+
+// ===== Responsive: drawer lateral y hoja de carrito (mobile) =====
+function updateBackdrop() {
+    const sidebarOpen = document.getElementById('sidebar').classList.contains('open');
+    const cartOpen = document.getElementById('cart-panel')?.classList.contains('open');
+    document.getElementById('backdrop').classList.toggle('show', sidebarOpen || cartOpen);
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    updateBackdrop();
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    updateBackdrop();
+}
+
+function toggleCartSheet() {
+    document.getElementById('cart-panel').classList.toggle('open');
+    updateBackdrop();
+}
+
+function closeCartSheet() {
+    document.getElementById('cart-panel')?.classList.remove('open');
+    updateBackdrop();
+}
+
+// Cierra drawer y hoja de carrito (click en el backdrop)
+function closeOverlays() {
+    closeSidebar();
+    closeCartSheet();
 }
 
 // Navigation Logic
@@ -29,6 +64,9 @@ function initNavigation() {
             if (targetId === 'view-products') {
                 loadProductsAdmin();
             }
+
+            // En mobile, cerrar el drawer al navegar
+            closeOverlays();
         });
     });
 }
@@ -45,7 +83,7 @@ function closeModal() {
     document.getElementById('todo-modal').classList.add('hidden');
 }
 
-// Data Fetching Mocks
+// Data Fetching
 async function fetchProducts() {
     try {
         const response = await fetch('/api/products');
@@ -96,8 +134,8 @@ async function initPOS() {
     const searchInput = document.getElementById('pos-search');
     searchInput.addEventListener('input', (e) => {
         const term = e.target.value.toLowerCase();
-        const filtered = currentProducts.filter(p => 
-            p.name.toLowerCase().includes(term) || 
+        const filtered = currentProducts.filter(p =>
+            p.name.toLowerCase().includes(term) ||
             p.code.toLowerCase().includes(term)
         );
         renderPOSProducts(filtered);
@@ -109,41 +147,41 @@ function showProductInfo(p) {
     const tiersRows = (p.scaled_prices && p.scaled_prices.length > 0)
         ? p.scaled_prices.map(t => {
             const tp = base * (1 - t.discount_percentage / 100);
-            return `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding: 0.2rem 0;">
-                        <span style="color:var(--text-muted);">A partir de ${t.quantity} u.</span>
-                        <span><strong>$${tp.toFixed(2)}</strong> <span style="color:var(--text-muted);">(${t.discount_percentage}% desc.)</span></span>
+            return `<div class="info-row">
+                        <span class="k">A partir de ${t.quantity} u.</span>
+                        <span class="v num"><strong>$${tp.toFixed(2)}</strong> <span class="k">(${t.discount_percentage}% desc.)</span></span>
                     </div>`;
           }).join('')
-        : '<span style="color:var(--text-muted); font-size:0.85rem;">Sin precios escalonados</span>';
+        : '<span class="k" style="font-size:0.85rem; color:var(--muted);">Sin precios escalonados</span>';
 
-    const row = (label, value) => value
-        ? `<div style="display:flex; justify-content:space-between; margin-bottom:0.4rem; font-size:0.88rem;">
-               <span style="color:var(--text-muted);">${label}</span>
-               <span style="text-align:right; max-width:60%;">${value}</span>
+    const row = (label, value, num = false) => value
+        ? `<div class="info-row">
+               <span class="k">${label}</span>
+               <span class="v${num ? ' num' : ''}">${value}</span>
            </div>`
         : '';
 
     document.getElementById('product-info-content').innerHTML = `
-        <h2 style="margin-bottom:0.25rem; font-size:1.1rem;">${p.name}</h2>
-        <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:1.2rem;">Cód. ${p.code}</p>
-        <div style="border-bottom:1px solid var(--border-glass); margin-bottom:0.8rem; padding-bottom:0.8rem;">
+        <h2 class="info-title">${p.name}</h2>
+        <p class="info-code">CÓD. ${p.code}</p>
+        <div class="info-section">
             ${row('Marca', p.brand)}
             ${row('Categoría', p.category)}
             ${row('Proveedor', p.provider)}
             ${row('Otros', p.others)}
         </div>
-        <div style="border-bottom:1px solid var(--border-glass); margin-bottom:0.8rem; padding-bottom:0.8rem;">
-            ${row('Costo', '$' + p.cost.toFixed(2))}
-            ${row('Margen', p.profit_margin + '%')}
-            ${row('Precio de venta', '<strong>$' + base.toFixed(2) + '</strong>')}
+        <div class="info-section">
+            ${row('Costo', '$' + p.cost.toFixed(2), true)}
+            ${row('Margen', p.profit_margin + '%', true)}
+            ${row('Precio de venta', '<strong>$' + base.toFixed(2) + '</strong>', true)}
             ${row('Unidad de venta', formatSaleUnit(p))}
         </div>
-        <div style="border-bottom:1px solid var(--border-glass); margin-bottom:0.8rem; padding-bottom:0.8rem;">
-            ${row('Stock', p.stock + ' u.')}
-            ${row('Stock mínimo', p.min_stock ? p.min_stock + ' u.' : null)}
+        <div class="info-section">
+            ${row('Stock', p.stock + ' u.', true)}
+            ${row('Stock mínimo', p.min_stock ? p.min_stock + ' u.' : null, true)}
         </div>
-        <div>
-            <div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:0.4rem;">Precios por cantidad</div>
+        <div class="info-section">
+            <div class="info-label">Precios por cantidad</div>
             ${tiersRows}
         </div>
     `;
@@ -155,7 +193,7 @@ function renderPOSProducts(products) {
     container.innerHTML = '';
 
     if(products.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted)">No se encontraron productos.</p>';
+        container.innerHTML = '<p style="color:var(--muted); padding: 0.5rem;">No se encontraron productos.</p>';
         return;
     }
 
@@ -173,18 +211,16 @@ function renderPOSProducts(products) {
             : '';
 
         card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; width: 100%;">
-                <div style="display: flex; flex-direction: column; flex: 1;">
-                    <span class="product-code">Cód. ${p.code} | Marca: ${p.brand || '-'}</span>
-                    <span class="product-name" style="margin: 0.25rem 0; font-size: 1.1rem;">${p.name}</span>
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">Stock: ${p.stock} | Cat: ${p.category || '-'} | Prov: ${p.provider || '-'}</span>
-                    ${tiersHtml ? `<span style="font-size: 0.78rem; color: var(--accent); margin-top: 0.2rem;">${tiersHtml}</span>` : ''}
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 0.25rem; margin-left: 0.75rem;">
-                    <button class="btn-icon" id="info-btn-${p.id}" style="width: 24px; height: 24px; font-size: 0.9rem; color: var(--text-muted);" title="Ver detalle"><i class="ph ph-info"></i></button>
-                    <span class="product-price">$${price.toFixed(2)}</span>
-                    <span style="font-size: 0.78rem; color: var(--text-muted);">${formatSaleUnit(p)}</span>
-                </div>
+            <div class="pc-info">
+                <span class="pc-code">CÓD. ${p.code}${p.brand ? ' · ' + p.brand : ''}</span>
+                <span class="pc-name">${p.name}</span>
+                <span class="pc-meta">Stock: ${p.stock} | Cat: ${p.category || '-'} | Prov: ${p.provider || '-'}</span>
+                ${tiersHtml ? `<span class="pc-tiers">${tiersHtml}</span>` : ''}
+            </div>
+            <div class="pc-side">
+                <button class="btn-icon pc-info-btn" id="info-btn-${p.id}" title="Ver detalle"><i class="ph ph-info"></i></button>
+                <span class="product-price">$${price.toFixed(2)}</span>
+                <span class="pc-unit">${formatSaleUnit(p)}</span>
             </div>
         `;
         card.onclick = () => { addToCart(p); };
@@ -222,11 +258,22 @@ function updateCartItemQuantity(productId, quantity) {
     renderCart();
 }
 
+// Actualiza contadores y total de la barra colapsada (mobile) y el badge del header
+function updateCartIndicators(finalTotal) {
+    const count = currentCart.reduce((sum, item) => sum + item.quantity, 0);
+    const peekCount = document.getElementById('cart-peek-count');
+    const peekTotal = document.getElementById('cart-peek-total');
+    const badge = document.getElementById('cart-count-badge');
+    if (peekCount) peekCount.textContent = count;
+    if (peekTotal) peekTotal.textContent = `$${finalTotal.toFixed(2)}`;
+    if (badge) badge.textContent = count === 1 ? '1 ítem' : `${count} ítems`;
+}
+
 function renderCart() {
     const container = document.getElementById('cart-items');
     const subtotalEl = document.getElementById('cart-subtotal');
     const totalEl = document.getElementById('cart-total');
-    
+
     if (currentCart.length === 0) {
         container.innerHTML = `
             <div class="empty-cart">
@@ -238,12 +285,13 @@ function renderCart() {
         totalEl.textContent = '$0.00';
         const discountAmountEl = document.getElementById('cart-discount-amount');
         if (discountAmountEl) discountAmountEl.textContent = '';
+        updateCartIndicators(0);
         return;
     }
-    
+
     container.innerHTML = '';
     let total = 0;
-    
+
     currentCart.forEach(item => {
         const price = getEffectivePrice(item.product, item.quantity);
         const basePrice = item.product.cost * (1 + item.product.profit_margin / 100);
@@ -252,25 +300,25 @@ function renderCart() {
         total += itemTotal;
 
         const div = document.createElement('div');
-        div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-glass);';
+        div.className = 'cart-item';
 
         div.innerHTML = `
-            <div style="flex: 1;">
-                <div style="font-weight: 600; font-size: 0.95rem;">${item.product.name}</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;">
+            <div class="ci-info">
+                <div class="ci-name">${item.product.name}</div>
+                <div class="ci-meta">
                     $${price.toFixed(2)} · ${formatSaleUnit(item.product)}
-                    ${hasDiscount ? `<span style="color: var(--accent); margin-left: 0.3rem; font-size: 0.75rem;">▼ precio x cant.</span>` : ''}
+                    ${hasDiscount ? `<span class="ci-tier-tag">▼ precio x cant.</span>` : ''}
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <input type="number" value="${item.quantity}" min="0" style="width: 50px; padding: 0.25rem; border-radius: 4px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass); color: white; text-align: center;" onchange="updateCartItemQuantity(${item.product.id}, this.value)">
-                <div style="font-weight: 600; width: 70px; text-align: right;">$${itemTotal.toFixed(2)}</div>
-                <button class="btn-icon" style="width: 24px; height: 24px; color: #ef4444; font-size: 1rem;" onclick="updateCartItemQuantity(${item.product.id}, 0)"><i class="ph ph-trash"></i></button>
+            <div class="ci-controls">
+                <input type="number" class="qty-input" value="${item.quantity}" min="0" onchange="updateCartItemQuantity(${item.product.id}, this.value)">
+                <div class="ci-total">$${itemTotal.toFixed(2)}</div>
+                <button class="btn-icon danger ci-remove" onclick="updateCartItemQuantity(${item.product.id}, 0)"><i class="ph ph-trash"></i></button>
             </div>
         `;
         container.appendChild(div);
     });
-    
+
     // Descuento global del carrito
     const discountCheck = document.getElementById('cart-discount-check');
     const discountInput = document.getElementById('cart-discount-pct');
@@ -291,6 +339,7 @@ function renderCart() {
 
     subtotalEl.textContent = `$${total.toFixed(2)}`;
     totalEl.textContent = `$${finalTotal.toFixed(2)}`;
+    updateCartIndicators(finalTotal);
 }
 
 
@@ -326,27 +375,27 @@ function renderProductsAdminTable(products) {
     tbody.innerHTML = '';
 
     if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--text-muted);">Sin resultados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--muted);">Sin resultados</td></tr>';
         return;
     }
 
     products.forEach(p => {
         const price = p.cost * (1 + p.profit_margin / 100);
         const scaledBadge = p.has_scaled_prices
-            ? `<span style="background: rgba(16,185,129,0.15); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; margin-left: 6px;">Escalonado</span>`
+            ? `<span class="badge badge-scaled">Escalonado</span>`
             : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${p.code}</td>
+            <td class="num">${p.code}</td>
             <td><strong>${p.name}</strong></td>
             <td>${p.brand || '-'}</td>
             <td>${p.provider || '-'}</td>
-            <td>$${p.cost.toFixed(2)}</td>
-            <td><span class="badge" style="background: rgba(16,185,129,0.2); color: var(--accent); padding: 4px 8px; border-radius: 4px;">${p.profit_margin}%</span></td>
-            <td><strong>$${price.toFixed(2)}</strong>${scaledBadge}</td>
-            <td>
-                <button class="btn-icon" style="width: 32px; height: 32px; font-size: 1rem;" onclick='showProductModal(${JSON.stringify(p)})'><i class="ph ph-pencil-simple"></i></button>
-                <button class="btn-icon" style="width: 32px; height: 32px; font-size: 1rem; color: #ef4444;" onclick='deleteProduct(${p.id})'><i class="ph ph-trash"></i></button>
+            <td class="num">$${p.cost.toFixed(2)}</td>
+            <td><span class="badge badge-margin">${p.profit_margin}%</span></td>
+            <td class="num"><strong>$${price.toFixed(2)}</strong>${scaledBadge}</td>
+            <td class="td-actions">
+                <button class="btn-icon" onclick='showProductModal(${JSON.stringify(p)})'><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-icon danger" onclick='deleteProduct(${p.id})'><i class="ph ph-trash"></i></button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -360,37 +409,39 @@ function enterAsMostrador() {
     currentUserRole = 'mostrador';
     document.getElementById('auth-overlay').classList.add('hidden');
     document.getElementById('admin-nav-section').style.display = 'none';
-    
+
     document.getElementById('btn-change-admin').style.display = 'inline-flex';
     document.getElementById('btn-change-mostrador').style.display = 'none';
-    
+
     // Select first nav item (mostrador)
     const posNav = document.querySelector('[data-target="view-pos"]');
     if (posNav) posNav.click();
-    
+
     // Update user info
     document.querySelector('.user-info .name').textContent = 'Mostrador';
     document.querySelector('.user-info .role').textContent = 'Vendedor';
+    document.querySelector('.avatar').textContent = 'M';
 }
 
 function enterAsAdmin() {
     const passInput = document.getElementById('login-password');
     const errorMsg = document.getElementById('login-error');
-    
+
     if (passInput.value === 'test') {
         currentUserRole = 'admin';
         document.getElementById('auth-overlay').classList.add('hidden');
         document.getElementById('admin-nav-section').style.display = 'block';
         errorMsg.style.display = 'none';
-        
+
         document.getElementById('btn-change-admin').style.display = 'none';
         document.getElementById('btn-change-mostrador').style.display = 'inline-flex';
-        
+
         // Update user info
         document.querySelector('.user-info .name').textContent = 'Usuario Activo';
         document.querySelector('.user-info .role').textContent = 'Admin';
+        document.querySelector('.avatar').textContent = 'A';
         passInput.value = ''; // clear password
-        
+
     } else {
         errorMsg.style.display = 'block';
     }
@@ -443,21 +494,19 @@ function renderPriceTiers() {
         const scaledPrice = (!isNaN(d) && d >= 0 && basePrice > 0) ? basePrice * (1 - d / 100) : null;
 
         const row = document.createElement('div');
-        row.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;';
+        row.className = 'tier-row';
         row.innerHTML = `
-            <span style="font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;">A partir de</span>
-            <input type="number" min="1" value="${tier.quantity}" placeholder="Cant."
-                style="width: 65px; padding: 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit; font-size: 0.85rem; text-align: center;"
+            <span class="lbl">A partir de</span>
+            <input type="number" class="form-input tier-input" min="1" value="${tier.quantity}" placeholder="Cant."
                 onchange="updateTierField(${i}, 'quantity', this.value)">
-            <span style="font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;">u. —</span>
-            <input type="number" id="tier-disc-${i}" min="0" max="99.99" step="0.01" value="${tier.discount_percentage}" placeholder="%"
-                style="width: 65px; padding: 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass); color: var(--text-main); font-family: inherit; font-size: 0.85rem; text-align: center;"
+            <span class="lbl">u. —</span>
+            <input type="number" id="tier-disc-${i}" class="form-input tier-input" min="0" max="99.99" step="0.01" value="${tier.discount_percentage}" placeholder="%"
                 oninput="updateTierPreview(${i})" onchange="updateTierField(${i}, 'discount_percentage', this.value)">
-            <span style="font-size: 0.82rem; color: var(--text-muted);">% desc.</span>
-            <span id="tier-preview-${i}" style="font-size: 0.85rem; color: var(--accent); font-weight: 600; min-width: 70px;">
+            <span class="lbl">% desc.</span>
+            <span id="tier-preview-${i}" class="tier-preview">
                 ${scaledPrice !== null ? '→ $' + scaledPrice.toFixed(2) : ''}
             </span>
-            <button type="button" class="btn-icon" style="width: 24px; height: 24px; color: #ef4444; font-size: 0.9rem; margin-left: auto;" onclick="removePriceTier(${i})">
+            <button type="button" class="btn-icon danger tier-remove" onclick="removePriceTier(${i})">
                 <i class="ph ph-trash"></i>
             </button>
         `;
@@ -561,11 +610,11 @@ async function saveProduct(e) {
 
 async function deleteProduct(id) {
     if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
-    
+
     try {
         const response = await fetch(`/api/products/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error("Fallo al eliminar producto");
-        
+
         loadProductsAdmin(); // Reload table
         initPOS(); // Reload POS products
     } catch (err) {
@@ -578,12 +627,17 @@ document.addEventListener('DOMContentLoaded', () => {
     initClock();
     initNavigation();
     initPOS();
-    
+
     // Handle enter key in password field
     document.getElementById('login-password').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             enterAsAdmin();
         }
     });
-});
 
+    // Al volver a desktop, limpiar estados de overlays mobile
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 1023) closeSidebar();
+        if (window.innerWidth > 860) closeCartSheet();
+    });
+});

@@ -199,11 +199,17 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
 --------------------------------------------------------------------------------
 
 [ UX / UI ]
-  [x] Diseño glassmorphism con tema oscuro — moderno y consistente
+  [x] Rediseño UI estilo industrial (tema oscuro grafito + acento ámbar,
+      tipografías Saira Condensed / Archivo / IBM Plex Mono) — 2026-06-10
   [x] Sidebar con navegación por rol
-  [x] Topbar con reloj en tiempo real (hora Argentina)
-  [x] Tipografía Inter (Google Fonts)
-  [ ] Diseño responsive / adaptado para tablets (sin media queries aún)
+  [x] Reloj en tiempo real (hora Argentina) en el sidebar
+  [x] Diseño responsive completo (2026-06-10):
+      - Desktop 1366x768: POS entra completo sin scroll de página
+      - Tablet (<1024px): sidebar como drawer con hamburguesa y backdrop
+      - Celular (<861px): carrito como hoja inferior colapsable con total visible
+      - Celular chico (<641px): tarjetas de producto apiladas, formularios a 1 columna
+  [x] Modales con scroll interno (ya no quedan cortados en pantallas bajas)
+  [x] CSS reorganizado con clases (se eliminaron los estilos inline repetidos)
   [ ] Feedback visual en operaciones: spinners, toasts de éxito/error
   [ ] Manejo de errores de red en el frontend (cuando la API falla)
   [ ] Modo de pantalla completa para mostrador (F11 o botón dedicado)
@@ -244,11 +250,11 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~18 ítems
 
   Transversales
-    Completados:  ~6 ítems
-    Pendientes:   ~11 ítems
+    Completados:  ~9 ítems
+    Pendientes:   ~9 ítems
 
-  TOTAL GENERAL: ~32 completados / ~101 pendientes
-  Avance estimado: ~24% del sistema completo
+  TOTAL GENERAL: ~35 completados / ~99 pendientes
+  Avance estimado: ~26% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
