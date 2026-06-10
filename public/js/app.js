@@ -343,6 +343,163 @@ function renderCart() {
 }
 
 
+// ===== Cobro / Checkout =====
+let selectedPayMethod = 'efectivo';
+
+// Calcula ítems (con precio unitario efectivo + descuento global prorrateado) y totales del carrito
+function getCartComputation() {
+    let subtotal = 0;
+    const lines = currentCart.map(item => {
+        const price = getEffectivePrice(item.product, item.quantity);
+        subtotal += price * item.quantity;
+        return { item, price };
+    });
+
+    const discountCheck = document.getElementById('cart-discount-check');
+    const discountInput = document.getElementById('cart-discount-pct');
+    const discountEnabled = discountCheck?.checked || false;
+    const discountPct = discountEnabled ? (parseFloat(discountInput?.value) || 0) : 0;
+    const discountAmount = subtotal * discountPct / 100;
+    const finalTotal = Math.round((subtotal - discountAmount) * 100) / 100;
+    const factor = subtotal > 0 ? (subtotal - discountAmount) / subtotal : 1;
+
+    const items = lines.map(l => ({
+        product_id: l.item.product.id,
+        quantity: l.item.quantity,
+        unit_price: Math.round(l.price * factor * 100) / 100
+    }));
+
+    const count = currentCart.reduce((s, i) => s + i.quantity, 0);
+    return { items, subtotal, discountPct, discountAmount, finalTotal, count };
+}
+
+function initCheckout() {
+    document.querySelectorAll('.pay-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('.pay-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            selectedPayMethod = chip.dataset.method;
+            document.getElementById('cash-field').style.display =
+                selectedPayMethod === 'efectivo' ? '' : 'none';
+        });
+    });
+}
+
+function openCheckout() {
+    if (currentCart.length === 0) return;
+    const c = getCartComputation();
+
+    document.getElementById('checkout-total').textContent = `$${c.finalTotal.toFixed(2)}`;
+    document.getElementById('checkout-items-hint').textContent =
+        `${c.count} ${c.count === 1 ? 'artículo' : 'artículos'}` +
+        (c.discountPct > 0 ? ` · ${c.discountPct}% descuento aplicado` : '');
+
+    // Reset de estado del modal
+    selectedPayMethod = 'efectivo';
+    document.querySelectorAll('.pay-chip').forEach(ch =>
+        ch.classList.toggle('active', ch.dataset.method === 'efectivo'));
+    document.getElementById('cash-field').style.display = '';
+    document.getElementById('cash-received').value = '';
+    document.getElementById('change-amount').textContent = '$0.00';
+    document.getElementById('change-amount').classList.remove('insufficient');
+    document.getElementById('checkout-fiscal').checked = false;
+    document.getElementById('checkout-error').style.display = 'none';
+    document.getElementById('checkout-confirm-btn').disabled = false;
+
+    closeCartSheet(); // en mobile, ocultar la hoja del carrito detrás del modal
+    document.getElementById('checkout-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('cash-received').focus(), 120);
+}
+
+function closeCheckout() {
+    document.getElementById('checkout-modal').classList.add('hidden');
+}
+
+function updateChange() {
+    const c = getCartComputation();
+    const received = parseFloat(document.getElementById('cash-received').value) || 0;
+    const change = received - c.finalTotal;
+    const el = document.getElementById('change-amount');
+    el.textContent = `$${(change > 0 ? change : 0).toFixed(2)}`;
+    el.classList.toggle('insufficient', received > 0 && change < -0.001);
+}
+
+async function confirmSale() {
+    const c = getCartComputation();
+    const errEl = document.getElementById('checkout-error');
+    const btn = document.getElementById('checkout-confirm-btn');
+    if (c.items.length === 0) return;
+
+    // Para efectivo, validar que lo recibido alcance (si se ingresó un monto)
+    if (selectedPayMethod === 'efectivo') {
+        const received = parseFloat(document.getElementById('cash-received').value);
+        if (!isNaN(received) && received > 0 && received < c.finalTotal - 0.001) {
+            errEl.textContent = 'El efectivo recibido es menor al total a cobrar.';
+            errEl.style.display = 'block';
+            return;
+        }
+    }
+
+    btn.disabled = true;
+    errEl.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/sales', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: c.items,
+                total: c.finalTotal,
+                payment_method: selectedPayMethod,
+                is_fiscal_ticket: document.getElementById('checkout-fiscal').checked
+            })
+        });
+
+        if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.error || 'No se pudo registrar la venta');
+        }
+        const data = await res.json();
+
+        // Vaciar carrito y resetear descuento
+        currentCart = [];
+        const discountCheck = document.getElementById('cart-discount-check');
+        const discountInput = document.getElementById('cart-discount-pct');
+        if (discountCheck) discountCheck.checked = false;
+        if (discountInput) discountInput.value = '';
+
+        closeCheckout();
+        await initPOS();   // refresca catálogo con el stock ya descontado
+        renderCart();
+        showToast(`Venta #${data.id} registrada · $${c.finalTotal.toFixed(2)}`);
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+    }
+}
+
+// Toast de feedback (éxito / error)
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    const icon = type === 'success' ? 'ph-check-circle' : 'ph-warning-circle';
+    toast.innerHTML = `<i class="ph ${icon}"></i> <span>${message}</span>`;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3200);
+}
+
+
 // Administración de Productos Logic
 let allProductsAdmin = [];
 
@@ -626,6 +783,7 @@ async function deleteProduct(id) {
 document.addEventListener('DOMContentLoaded', () => {
     initClock();
     initNavigation();
+    initCheckout();
     initPOS();
 
     // Handle enter key in password field

@@ -1151,6 +1151,209 @@ body {
     margin-bottom: 0.35rem;
 }
 
+/* ============ COBRO / CHECKOUT ============ */
+
+.checkout-total-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+    margin: 0.4rem 0 1.1rem;
+}
+
+.checkout-total-box .k {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+}
+
+.checkout-total {
+    font-family: var(--font-mono);
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--green);
+    line-height: 1.1;
+}
+
+.checkout-items-hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+.checkout-field { margin-bottom: 1rem; }
+
+.checkout-field > label {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.pay-methods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.pay-chip {
+    flex: 1 1 calc(33.33% - 0.5rem);
+    min-width: 92px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.55rem 0.5rem;
+    background: var(--panel-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.pay-chip i { font-size: 1.1rem; }
+.pay-chip:hover { background: var(--panel-3); }
+
+.pay-chip.active {
+    background: var(--amber);
+    color: var(--amber-ink);
+    border-color: var(--amber);
+    font-weight: 600;
+}
+
+.cash-row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: stretch;
+}
+
+.cash-input-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.cash-prefix {
+    position: absolute;
+    left: 0.7rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    pointer-events: none;
+}
+
+.cash-input-wrap .form-input {
+    padding-left: 1.6rem;
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+}
+
+.change-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.3rem 0.8rem;
+}
+
+.change-box .k {
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+}
+
+.change-amount {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.change-amount.insufficient { color: var(--red); }
+
+.fiscal-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text);
+    margin-top: 0.2rem;
+}
+
+.fiscal-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--amber);
+    cursor: pointer;
+}
+
+/* ============ TOASTS ============ */
+
+#toast-container {
+    position: fixed;
+    bottom: 1.2rem;
+    right: 1.2rem;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 240px;
+    max-width: 360px;
+    padding: 0.85rem 1.1rem;
+    background: var(--panel);
+    border: 1px solid var(--border-strong);
+    border-left: 4px solid var(--green);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.toast.show { transform: translateX(0); opacity: 1; }
+.toast i { font-size: 1.4rem; flex-shrink: 0; }
+.toast-success { border-left-color: var(--green); }
+.toast-success i { color: var(--green); }
+.toast-error { border-left-color: var(--red); }
+.toast-error i { color: var(--red); }
+
+@media (max-width: 640px) {
+    #toast-container {
+        left: 0.8rem;
+        right: 0.8rem;
+        bottom: 0.8rem;
+    }
+    .toast { min-width: 0; max-width: none; }
+    .pay-chip { flex: 1 1 calc(50% - 0.5rem); }
+}
+
 /* ============ RESPONSIVE ============ */
 
 /* Pantallas bajas (notebooks 1366x768): compactar verticalmente */

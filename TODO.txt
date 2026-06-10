@@ -1,4 +1,4 @@
-- Definir lógica y guardado en DB para la acción de "Cobrar"
+- [HECHO 2026-06-10] Flujo de cobro: modal de pago + guardado en sales/sale_items + descuento de stock
 - Definir integración para "Tique Fiscal" (¿impresora local o webservice AFIP?)
 - Definir lógica, diseño e impresión de "Imprimir como presupuesto"
 - Definir formato de importación de Excel (mapeo de columnas a utilizar)

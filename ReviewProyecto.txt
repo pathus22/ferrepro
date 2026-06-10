@@ -108,13 +108,14 @@ FASE 2 — VENTAS, FACTURACIÓN Y TICKET
   [ ] Advertencia si se intenta vender más unidades que el stock disponible
 
 [ COBRO Y CIERRE DE VENTA ]
-  [ ] Modal/flujo de cobro con selección de medio de pago
-      (efectivo, tarjeta débito, tarjeta crédito, transferencia, cheque)
-  [ ] Cálculo de vuelto para pago en efectivo
-  [ ] Guardado de la venta en tabla `sales` y `sale_items`
-  [ ] Descuento automático de stock al confirmar venta
-  [ ] Asociar venta a un corredor/cliente (opcional)
-  [ ] Comprobante de venta generado tras cobrar
+  [x] Modal/flujo de cobro con selección de medio de pago — 2026-06-10
+      (efectivo, débito, crédito, transferencia, cheque)
+  [x] Cálculo de vuelto para pago en efectivo (con validación de monto)
+  [x] Guardado de la venta en tabla `sales` y `sale_items` (POST /api/sales transaccional)
+  [x] Descuento automático de stock al confirmar venta
+  [x] Endpoint GET /api/sales (historial, opcional ?date=YYYY-MM-DD)
+  [ ] Asociar venta a un corredor/cliente (opcional) — schema soporta corridor_id, falta UI
+  [~] Comprobante tras cobrar: hoy toast de confirmación; falta PDF/ticket imprimible
 
 [ FACTURACIÓN / TICKETS ]
   [ ] Definir flujo de "Imprimir como presupuesto" (PDF generado server-side)
@@ -151,7 +152,7 @@ FASE 3 — CORREDORES, STOCK Y PEDIDOS
 [ MÓDULO DE STOCK E INVENTARIO ]
   [ ] Vista "Stock e Inventario" — solo placeholder actualmente
   [ ] Inventario diferenciado: Galpón vs. Local (campo adicional en products o tabla separada)
-  [ ] Baja automática de stock al confirmar una venta (depende del módulo de cobro)
+  [x] Baja automática de stock al confirmar una venta — 2026-06-10
   [ ] Ajuste manual de stock (entrada, salida, ajuste de inventario físico)
   [ ] Listado de "Faltante Momentáneo" (productos sin stock)
   [ ] Alerta visual de stock mínimo (campo min_stock ya existe en schema)
@@ -210,7 +211,7 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
       - Celular chico (<641px): tarjetas de producto apiladas, formularios a 1 columna
   [x] Modales con scroll interno (ya no quedan cortados en pantallas bajas)
   [x] CSS reorganizado con clases (se eliminaron los estilos inline repetidos)
-  [ ] Feedback visual en operaciones: spinners, toasts de éxito/error
+  [~] Feedback visual: toast de éxito/error implementado (2026-06-10); faltan spinners
   [ ] Manejo de errores de red en el frontend (cuando la API falla)
   [ ] Modo de pantalla completa para mostrador (F11 o botón dedicado)
   [ ] Favicon e iconografía consistente
@@ -238,8 +239,8 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~30 ítems
 
   FASE 2 — Ventas y Facturación
-    Completados:  ~8 ítems (interfaz POS básica y roles)
-    Pendientes:   ~20 ítems
+    Completados:  ~13 ítems (POS, roles y flujo de cobro completo)
+    Pendientes:   ~15 ítems
 
   FASE 3 — Corredores, Stock y Pedidos
     Completados:  0 ítems
@@ -253,15 +254,15 @@ RESUMEN CUANTITATIVO
     Completados:  ~9 ítems
     Pendientes:   ~9 ítems
 
-  TOTAL GENERAL: ~35 completados / ~99 pendientes
-  Avance estimado: ~26% del sistema completo
+  TOTAL GENERAL: ~41 completados / ~93 pendientes
+  Avance estimado: ~31% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
 --------------------------------------------------------------------------------
 
-  1. Cerrar el flujo de cobro (modal de pago + guardado en DB + descuento de stock)
-     → Desbloquea: reportes, caja, historial de ventas
+  1. [HECHO 2026-06-10] Flujo de cobro cerrado (modal de pago + guardado en DB +
+     descuento de stock + GET /api/sales). Desbloqueó: caja, historial, reportes.
 
   2. Agregar endpoints de API faltantes (categories, providers, precios escalonados)
      → Desbloquea: gestión completa de catálogo

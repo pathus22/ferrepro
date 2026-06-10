@@ -178,7 +178,7 @@
                         </div>
 
                         <div class="cart-actions">
-                            <button class="btn btn-primary btn-cobrar" onclick="showTodoModal('Cobrar')"><i class="ph ph-money"></i> Cobrar</button>
+                            <button class="btn btn-primary btn-cobrar" onclick="openCheckout()"><i class="ph ph-money"></i> Cobrar</button>
                             <div class="cart-actions-row">
                                 <button class="btn btn-secondary" onclick="showTodoModal('Imprimir como presupuesto')"><i class="ph ph-printer"></i> Presupuesto</button>
                                 <button class="btn btn-secondary" onclick="showTodoModal('Tique Fiscal')"><i class="ph ph-receipt"></i> Tique Fiscal</button>
@@ -367,6 +367,58 @@
                     <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- CHECKOUT / COBRO MODAL -->
+    <div id="checkout-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeCheckout()"><i class="ph ph-x"></i></button>
+            <h2><i class="ph ph-money" style="color: var(--amber); vertical-align: -2px;"></i> Cobrar Venta</h2>
+
+            <div class="checkout-total-box">
+                <span class="k">Total a cobrar</span>
+                <span class="checkout-total" id="checkout-total">$0.00</span>
+                <span class="checkout-items-hint" id="checkout-items-hint"></span>
+            </div>
+
+            <div class="checkout-field">
+                <label>Medio de pago</label>
+                <div class="pay-methods" id="pay-methods">
+                    <button type="button" class="pay-chip active" data-method="efectivo"><i class="ph ph-money"></i> Efectivo</button>
+                    <button type="button" class="pay-chip" data-method="debito"><i class="ph ph-credit-card"></i> Débito</button>
+                    <button type="button" class="pay-chip" data-method="credito"><i class="ph ph-credit-card"></i> Crédito</button>
+                    <button type="button" class="pay-chip" data-method="transferencia"><i class="ph ph-arrows-left-right"></i> Transfer.</button>
+                    <button type="button" class="pay-chip" data-method="cheque"><i class="ph ph-scroll"></i> Cheque</button>
+                </div>
+            </div>
+
+            <!-- Vuelto: solo para efectivo -->
+            <div class="checkout-field" id="cash-field">
+                <label for="cash-received">Paga con</label>
+                <div class="cash-row">
+                    <div class="cash-input-wrap">
+                        <span class="cash-prefix">$</span>
+                        <input type="number" id="cash-received" class="form-input" min="0" step="0.01" placeholder="0.00" oninput="updateChange()">
+                    </div>
+                    <div class="change-box">
+                        <span class="k">Vuelto</span>
+                        <span class="change-amount" id="change-amount">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <label class="fiscal-toggle">
+                <input type="checkbox" id="checkout-fiscal">
+                <span>Marcar como tique fiscal</span>
+            </label>
+
+            <p class="form-error" id="checkout-error" style="display: none;"></p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeCheckout()">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="checkout-confirm-btn" onclick="confirmSale()"><i class="ph ph-check-fat"></i> Confirmar venta</button>
+            </div>
         </div>
     </div>
 
