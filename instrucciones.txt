@@ -34,7 +34,9 @@ INICIAR LA APLICACIÓN
 
   Opción A — Doble click (más fácil):
     Hacer doble click en el archivo:  start.bat
-    Se abre el servidor y el navegador automáticamente.
+    Se abren DOS ventanas: la del SERVIDOR (que muestra la IP de acceso y NO hay
+    que cerrar) y se abre solo el navegador en esta PC. La primera vez, start.bat
+    instala las dependencias automáticamente si hace falta.
 
   Opción B — Desde terminal:
     Escribir el siguiente comando y presionar Enter:
@@ -44,38 +46,81 @@ INICIAR LA APLICACIÓN
     Luego abrir el navegador e ingresar:  http://localhost:3000
 
 --------------------------------------------------------------------------------
-ACCESO DESDE OTROS DISPOSITIVOS EN LA MISMA RED (tablets, otras PCs)
+ACCESO DESDE OTROS DISPOSITIVOS EN LA MISMA RED (tablets, celulares, otras PCs)
 --------------------------------------------------------------------------------
 
-  1. En la PC donde está instalado el servidor, averiguar su IP local:
-     - Abrir terminal y escribir:  ipconfig
-     - Buscar "Dirección IPv4" (ejemplo: 192.168.1.105)
+  La aplicación está pensada para usarse desde varios dispositivos a la vez
+  (mostrador + tablets), todos conectados a la MISMA red Wi-Fi / red local.
 
-  2. En el otro dispositivo, abrir el navegador e ingresar:
-       http://192.168.1.105:3000
-     (reemplazar con la IP del paso anterior)
+  PASO 1 — Ver la dirección IP del servidor
+  -----------------------------------------
+    Al iniciar (start.bat o "node server.js"), la ventana del SERVIDOR muestra
+    algo como esto:
 
-  NOTA: Ambos dispositivos deben estar conectados al mismo Wi-Fi o red local.
+        ===================================================
+         FerrePro - Servidor en marcha
+        ===================================================
+         En esta PC:           http://localhost:3000
+         Desde tablet/celular: http://192.168.1.105:3000
+        ===================================================
+
+    Anotá la dirección que dice "Desde tablet/celular".
+    (Si aparecen varias, usá la que empieza con 192.168.x.x — es la del Wi-Fi.)
+
+  PASO 2 — Ingresar desde el otro dispositivo
+  -------------------------------------------
+    En la tablet o celular, abrir el navegador (Chrome, Safari, etc.) y escribir
+    esa dirección, por ejemplo:
+
+        http://192.168.1.105:3000
+
+  IMPORTANTE — Firewall de Windows (solo la primera vez)
+  ------------------------------------------------------
+    La primera vez que arranques el servidor, Windows puede mostrar una ventana
+    de "Firewall de Windows Defender" preguntando si permitís el acceso de Node.js.
+        → Tildar "Redes privadas" y hacer click en "Permitir acceso".
+
+    Si los otros dispositivos NO pueden conectarse:
+      - Asegurate de estar todos en el mismo Wi-Fi.
+      - Verificá que se haya permitido Node.js en el Firewall (paso anterior).
+      - Probá apagar momentáneamente el Firewall para confirmar que es eso.
 
 --------------------------------------------------------------------------------
-PRIMER ACCESO
+PRIMER ACCESO Y CONTRASEÑA
 --------------------------------------------------------------------------------
 
-  - Al abrir la app, el rol por defecto es "Mostrador" (solo punto de venta)
+  - Al abrir la app, el rol por defecto es "Mostrador" (solo punto de venta).
   - Para acceder al área de Administración:
-    → Hacer click en "Acceso Admin" en el panel izquierdo
-    → Contraseña: test
+    → Hacer click en "Cambiar a Admin" en el panel izquierdo
+    → Contraseña inicial:  admin
+
+  >> IMPORTANTE: cambiá la contraseña apenas empieces a usarlo.
+     Admin → Configuración → "Seguridad - Contraseña de administrador".
 
 --------------------------------------------------------------------------------
-NOTAS IMPORTANTES
+COPIAS DE SEGURIDAD (BACKUP)
 --------------------------------------------------------------------------------
 
   - Los datos se guardan localmente en el archivo: ferreteria.sqlite
     NO se envía ningún dato a internet.
 
-  - Hacer copias de seguridad de ese archivo periódicamente para no perder datos.
+  - El sistema hace copias de seguridad AUTOMÁTICAS en la carpeta "backups/"
+    (al iniciar y cada 6 horas; conserva las últimas 30 copias).
+
+  - También podés crear una copia manual o restaurar una copia anterior desde:
+    Admin → Configuración → "Copias de seguridad".
+
+  - Recomendado: de vez en cuando, copiá la carpeta "backups" a un pendrive o
+    a otra PC, por si se rompe el disco de la PC principal.
+
+--------------------------------------------------------------------------------
+NOTAS IMPORTANTES
+--------------------------------------------------------------------------------
 
   - El servidor debe quedar corriendo en la PC principal mientras se usa la app.
-    (No cerrar la terminal mientras la app esté en uso)
+    (No cerrar la ventana del SERVIDOR mientras la app esté en uso.)
+
+  - La ventana del "Lanzador" (la que abre start.bat) sí se puede cerrar; la que
+    NO hay que cerrar es la del SERVIDOR.
 
 ================================================================================

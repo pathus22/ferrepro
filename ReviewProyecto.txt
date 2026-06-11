@@ -256,11 +256,12 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
       ATTACH + defer_foreign_keys; resguardo automático del estado actual antes)
 
 [ DESPLIEGUE ]
-  [x] start.bat inicia el servidor node
-  [ ] start.bat abre el navegador automáticamente
+  [x] start.bat inicia el servidor (ventana propia) y abre el navegador — 2026-06-11
+      (verifica Node, instala dependencias si faltan; el servidor muestra la IP)
+  [x] El servidor escucha en 0.0.0.0 y muestra la(s) IP(s) de acceso al arrancar
+  [x] Documentación de instalación y de acceso por IP (instrucciones.txt), con
+      nota del Firewall de Windows y contraseña inicial "admin" — 2026-06-11
   [ ] Empaquetado como ejecutable (.exe) con pkg o similar (opcional)
-  [ ] Documentación de instalación para el usuario final
-  [ ] Instrucciones para que otros dispositivos en red accedan por IP
 
 --------------------------------------------------------------------------------
 RESUMEN CUANTITATIVO
@@ -283,11 +284,11 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~3 ítems
 
   Transversales
-    Completados:  ~14 ítems (datos empresa + backup + restore + contraseña configurable)
-    Pendientes:   ~4 ítems
+    Completados:  ~17 ítems (+ start.bat con navegador/IP + doc de acceso por red)
+    Pendientes:   ~2 ítems
 
-  TOTAL GENERAL: ~98 completados / ~36 pendientes
-  Avance estimado: ~73% del sistema completo
+  TOTAL GENERAL: ~101 completados / ~33 pendientes
+  Avance estimado: ~75% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)

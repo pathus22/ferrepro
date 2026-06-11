@@ -1,8 +1,10 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// Inicializar la base de datos (crea o lee database.sqlite en la raiz)
-const db = new Database(path.join(__dirname, '..', 'ferreteria.sqlite'), { verbose: console.log });
+// Inicializar la base de datos (crea o lee ferreteria.sqlite en la raíz).
+// El log de cada SQL se activa solo con la variable de entorno DEBUG_SQL=1
+const db = new Database(path.join(__dirname, '..', 'ferreteria.sqlite'),
+    process.env.DEBUG_SQL ? { verbose: console.log } : {});
 
 // Inicializar tablas
 function initDB() {

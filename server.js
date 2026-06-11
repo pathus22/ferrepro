@@ -1013,7 +1013,32 @@ app.delete('/api/checks/:id', (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Iniciar servidor
-app.listen(PORT, () => {
-    console.log(`Servidor local corriendo en http://localhost:${PORT}`);
+// Direcciones IPv4 de la red local (para acceder desde tablets / celulares)
+function lanAddresses() {
+    const nets = require('os').networkInterfaces();
+    const out = [];
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name] || []) {
+            if (net.family === 'IPv4' && !net.internal) out.push(net.address);
+        }
+    }
+    return out;
+}
+
+// Iniciar servidor (0.0.0.0 = accesible desde otros dispositivos de la red local)
+app.listen(PORT, '0.0.0.0', () => {
+    const ips = lanAddresses();
+    console.log('');
+    console.log('  ===================================================');
+    console.log('   FerrePro - Servidor en marcha');
+    console.log('  ===================================================');
+    console.log(`   En esta PC:           http://localhost:${PORT}`);
+    if (ips.length) {
+        console.log('   Desde tablet/celular: ' + ips.map(ip => `http://${ip}:${PORT}`).join('\n                         '));
+    } else {
+        console.log('   (No se detectó una IP de red local; conectá la PC al Wi-Fi/red)');
+    }
+    console.log('  ===================================================');
+    console.log('   Para detener el sistema, cerrá esta ventana.');
+    console.log('');
 });
