@@ -2,10 +2,34 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const db = require('./src/database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ===== Contraseña de administrador (hash + verificación) =====
+function hashPassword(pw) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(String(pw), salt, 32).toString('hex');
+    return `${salt}:${hash}`;
+}
+function verifyPassword(pw, stored) {
+    if (!stored || !stored.includes(':')) return false;
+    const [salt, hash] = stored.split(':');
+    const test = crypto.scryptSync(String(pw), salt, 32).toString('hex');
+    const a = Buffer.from(hash, 'hex');
+    const b = Buffer.from(test, 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+// Seed de la contraseña por defecto ("admin") si todavía no hay ninguna configurada
+try {
+    const cfg = db.prepare('SELECT admin_password_hash FROM company_info WHERE id = 1').get();
+    if (cfg && !cfg.admin_password_hash) {
+        db.prepare('UPDATE company_info SET admin_password_hash = ? WHERE id = 1').run(hashPassword('admin'));
+        console.log('Contraseña de admin inicial: "admin" (cambiala en Configuración).');
+    }
+} catch (e) { /* la columna se crea en database.js */ }
 
 app.use(cors());
 app.use(express.json({ limit: '6mb' })); // 6mb para permitir el logo en base64
@@ -722,12 +746,18 @@ app.put('/api/company', (req, res) => {
 
 // ===== CAJA: APERTURA / CIERRE (ARQUEO) =====
 
-// Efectivo esperado en una sesión = fondo inicial + ventas en efectivo desde la apertura
+// Efectivo esperado = fondo inicial + ventas en efectivo - gastos en efectivo (desde la apertura)
 function expectedCash(session) {
     const cash = db.prepare(
         "SELECT COALESCE(SUM(total),0) t, COUNT(*) c FROM sales WHERE payment_method = 'efectivo' AND sale_date >= ?"
     ).get(session.opened_at);
-    return { cashSales: cash.t, cashCount: cash.c, expected: session.opening_amount + cash.t };
+    const exp = db.prepare(
+        "SELECT COALESCE(SUM(amount),0) t FROM expenses WHERE payment_method = 'efectivo' AND expense_date >= ?"
+    ).get(session.opened_at);
+    return {
+        cashSales: cash.t, cashCount: cash.c, cashExpenses: exp.t,
+        expected: session.opening_amount + cash.t - exp.t
+    };
 }
 
 // Estado de la caja: sesión abierta (si hay) con el efectivo esperado calculado
@@ -797,6 +827,189 @@ app.get('/api/backups', (req, res) => {
             })
             .sort((a, b) => b.mtime - a.mtime);
         res.json(files);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== AUTENTICACIÓN (ADMIN) =====
+
+app.post('/api/auth/login', (req, res) => {
+    try {
+        const cfg = db.prepare('SELECT admin_password_hash FROM company_info WHERE id = 1').get();
+        const ok = verifyPassword(req.body.password || '', cfg && cfg.admin_password_hash);
+        res.json({ ok: !!ok });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/auth/password', (req, res) => {
+    try {
+        const { current, new_password } = req.body;
+        const cfg = db.prepare('SELECT admin_password_hash FROM company_info WHERE id = 1').get();
+        if (!verifyPassword(current || '', cfg && cfg.admin_password_hash)) {
+            return res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+        }
+        const np = String(new_password || '');
+        if (np.length < 4) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 4 caracteres' });
+        db.prepare('UPDATE company_info SET admin_password_hash = ? WHERE id = 1').run(hashPassword(np));
+        res.json({ message: 'Contraseña actualizada' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== RESTAURAR DB DESDE UN BACKUP =====
+// Copia los datos del backup a la base viva usando ATTACH (sin cerrar la conexión).
+app.post('/api/restore', (req, res) => {
+    try {
+        const file = String(req.body.file || '');
+        if (!/^ferreteria-[0-9-]+\.sqlite$/.test(file)) {
+            return res.status(400).json({ error: 'Nombre de backup inválido' });
+        }
+        const src = path.join(BACKUP_DIR, file);
+        if (!fs.existsSync(src)) return res.status(404).json({ error: 'Backup no encontrado' });
+
+        // Resguardo de seguridad del estado actual antes de restaurar (copia de archivo
+        // síncrona: no abre transacción en la conexión viva, journal_mode = delete)
+        if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        try { fs.copyFileSync(path.join(__dirname, 'ferreteria.sqlite'), path.join(BACKUP_DIR, `pre-restore-${stamp()}.sqlite`)); } catch (e) {}
+
+        const tables = db.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        ).all().map(t => t.name);
+
+        db.exec(`ATTACH DATABASE '${src.replace(/'/g, "''")}' AS bak`);
+        try {
+            const tx = db.transaction(() => {
+                // defer_foreign_keys SÍ se puede activar dentro de la transacción: difiere
+                // el chequeo de FK hasta el COMMIT, cuando el estado ya es consistente.
+                db.pragma('defer_foreign_keys = ON');
+                for (const t of tables) {
+                    const inBak = db.prepare("SELECT 1 FROM bak.sqlite_master WHERE type='table' AND name=?").get(t);
+                    if (!inBak) continue;
+                    const liveCols = db.pragma(`table_info("${t}")`).map(c => c.name);
+                    const bakCols = db.pragma(`bak.table_info("${t}")`).map(c => c.name);
+                    const common = liveCols.filter(c => bakCols.includes(c));
+                    if (common.length === 0) continue;
+                    const cols = common.map(c => `"${c}"`).join(',');
+                    db.exec(`DELETE FROM main."${t}"`);
+                    db.exec(`INSERT INTO main."${t}" (${cols}) SELECT ${cols} FROM bak."${t}"`);
+                }
+            });
+            tx();
+        } finally {
+            db.exec('DETACH DATABASE bak');
+        }
+        res.json({ message: 'Base restaurada desde ' + file });
+    } catch (err) {
+        res.status(500).json({ error: 'No se pudo restaurar: ' + err.message });
+    }
+});
+
+// ===== GASTOS / EGRESOS =====
+
+app.get('/api/expenses', (req, res) => {
+    try {
+        let rows;
+        if (req.query.month) {
+            rows = db.prepare("SELECT * FROM expenses WHERE strftime('%Y-%m', expense_date) = ? ORDER BY expense_date DESC").all(req.query.month);
+        } else {
+            rows = db.prepare('SELECT * FROM expenses ORDER BY expense_date DESC LIMIT 200').all();
+        }
+        const total = rows.reduce((s, e) => s + e.amount, 0);
+        res.json({ items: rows, total });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/expenses', (req, res) => {
+    try {
+        const { description, amount, category, payment_method, note } = req.body;
+        if (!description || !String(description).trim()) return res.status(400).json({ error: 'Descripción obligatoria' });
+        const amt = parseFloat(amount);
+        if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: 'Importe inválido' });
+        const r = db.prepare(
+            'INSERT INTO expenses (description, amount, category, payment_method, note) VALUES (?, ?, ?, ?, ?)'
+        ).run(String(description).trim(), amt, (category || '').trim(), payment_method || 'efectivo', (note || '').trim());
+        res.json({ id: r.lastInsertRowid, message: 'Gasto registrado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/expenses/:id', (req, res) => {
+    try {
+        db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
+        res.json({ message: 'Gasto eliminado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== CUENTAS A PAGAR =====
+
+app.get('/api/payables', (req, res) => {
+    try {
+        const rows = db.prepare("SELECT * FROM payables ORDER BY (status='pagado'), due_date IS NULL, due_date ASC, id DESC").all();
+        const pending = rows.filter(p => p.status === 'pendiente').reduce((s, p) => s + p.amount, 0);
+        res.json({ items: rows, pending });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/payables', (req, res) => {
+    try {
+        const { provider, description, amount, due_date } = req.body;
+        const amt = parseFloat(amount);
+        if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: 'Importe inválido' });
+        const r = db.prepare(
+            'INSERT INTO payables (provider, description, amount, due_date) VALUES (?, ?, ?, ?)'
+        ).run((provider || '').trim(), (description || '').trim(), amt, (due_date || '').trim() || null);
+        res.json({ id: r.lastInsertRowid, message: 'Cuenta registrada' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/payables/:id/pay', (req, res) => {
+    try {
+        const r = db.prepare("UPDATE payables SET status='pagado', paid_at=datetime('now','localtime') WHERE id=?").run(req.params.id);
+        if (r.changes === 0) return res.status(404).json({ error: 'Cuenta no encontrada' });
+        res.json({ message: 'Marcada como pagada' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/payables/:id', (req, res) => {
+    try {
+        db.prepare('DELETE FROM payables WHERE id = ?').run(req.params.id);
+        res.json({ message: 'Cuenta eliminada' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== CHEQUES =====
+
+app.get('/api/checks', (req, res) => {
+    try {
+        const rows = db.prepare("SELECT * FROM checks ORDER BY (status IN ('cobrado','entregado','rechazado')), due_date IS NULL, due_date ASC, id DESC").all();
+        const inWallet = rows.filter(c => c.status === 'cartera').reduce((s, c) => s + c.amount, 0);
+        res.json({ items: rows, inWallet });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/checks', (req, res) => {
+    try {
+        const { bank, number, amount, due_date, type, note } = req.body;
+        const amt = parseFloat(amount);
+        if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: 'Importe inválido' });
+        const r = db.prepare(
+            'INSERT INTO checks (bank, number, amount, due_date, type, note) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run((bank || '').trim(), (number || '').trim(), amt, (due_date || '').trim() || null, type === 'emitido' ? 'emitido' : 'recibido', (note || '').trim());
+        res.json({ id: r.lastInsertRowid, message: 'Cheque registrado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/checks/:id/status', (req, res) => {
+    try {
+        const valid = ['cartera', 'depositado', 'cobrado', 'entregado', 'rechazado'];
+        if (!valid.includes(req.body.status)) return res.status(400).json({ error: 'Estado inválido' });
+        const r = db.prepare('UPDATE checks SET status=? WHERE id=?').run(req.body.status, req.params.id);
+        if (r.changes === 0) return res.status(404).json({ error: 'Cheque no encontrado' });
+        res.json({ message: 'Estado actualizado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/checks/:id', (req, res) => {
+    try {
+        db.prepare('DELETE FROM checks WHERE id = ?').run(req.params.id);
+        res.json({ message: 'Cheque eliminado' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

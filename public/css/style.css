@@ -2111,6 +2111,65 @@ body {
     .cash-metrics { gap: 1rem; }
 }
 
+/* ============ FINANZAS: PESTAÑAS Y SUB-MÓDULOS ============ */
+
+.fin-tabs {
+    display: flex;
+    gap: 0.3rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.fin-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-bottom: -1px;
+}
+.fin-tab i { font-size: 1.1rem; }
+.fin-tab:hover { color: var(--text); }
+.fin-tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+
+.fin-section.hidden { display: none; }
+
+.fin-toolbar { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.9rem; flex-wrap: wrap; }
+
+.fin-form-panel { border-radius: var(--radius); padding: 0.9rem 1.1rem; margin-bottom: 0.9rem; }
+.fin-form-title {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.95rem; font-weight: 600; margin-bottom: 0.7rem;
+}
+.fin-form-title i { color: var(--amber); font-size: 1.2rem; }
+
+.fin-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.fin-form .form-input { flex: 1; min-width: 120px; }
+.fin-form .btn { flex-shrink: 0; }
+
+.check-status-select {
+    padding: 0.25rem 0.4rem;
+    min-height: 30px;
+    font-size: 0.78rem;
+    width: auto;
+    display: inline-block;
+}
+
+.backup-item .btn-sm { flex-shrink: 0; margin-left: 0.3rem; }
+
+@media (max-width: 860px) {
+    #gastos-stats, #payables-stats, #checks-stats { grid-template-columns: 1fr; }
+    .fin-form .form-input { min-width: 0; flex: 1 1 45%; }
+}
+
 /* ============ RESPONSIVE ============ */
 
 /* Pantallas bajas (notebooks 1366x768): compactar verticalmente */

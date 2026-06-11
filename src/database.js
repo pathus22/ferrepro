@@ -137,6 +137,42 @@ function initDB() {
             status TEXT NOT NULL DEFAULT 'open',   -- open / closed
             notes TEXT
         );
+
+        -- Gastos / egresos
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL,
+            amount REAL NOT NULL,
+            category TEXT,
+            payment_method TEXT,
+            expense_date DATETIME DEFAULT (datetime('now','localtime')),
+            note TEXT
+        );
+
+        -- Cuentas a pagar (a proveedores u otros)
+        CREATE TABLE IF NOT EXISTS payables (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT,
+            description TEXT,
+            amount REAL NOT NULL,
+            due_date TEXT,
+            status TEXT NOT NULL DEFAULT 'pendiente',  -- pendiente / pagado
+            created_at DATETIME DEFAULT (datetime('now','localtime')),
+            paid_at DATETIME
+        );
+
+        -- Cartera de cheques
+        CREATE TABLE IF NOT EXISTS checks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            bank TEXT,
+            number TEXT,
+            amount REAL NOT NULL,
+            due_date TEXT,
+            type TEXT DEFAULT 'recibido',           -- recibido / emitido
+            status TEXT NOT NULL DEFAULT 'cartera', -- cartera / depositado / cobrado / entregado / rechazado
+            note TEXT,
+            created_at DATETIME DEFAULT (datetime('now','localtime'))
+        );
     `);
 
     // Asegurar que exista la fila de configuración
@@ -155,6 +191,7 @@ try { db.exec(`ALTER TABLE corridors ADD COLUMN discount_percentage REAL DEFAULT
 try { db.exec(`ALTER TABLE corridors ADD COLUMN phone TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE corridors ADD COLUMN notes TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE company_info ADD COLUMN auto_ticket INTEGER DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE company_info ADD COLUMN admin_password_hash TEXT`); } catch(e) {}
 
 // Sincronizar categorías y proveedores a partir de los productos ya cargados
 // (inserta solo los que falten; corre en cada arranque sin duplicar)

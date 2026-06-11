@@ -675,11 +675,20 @@ function enterAsMostrador() {
     document.querySelector('.avatar').textContent = 'M';
 }
 
-function enterAsAdmin() {
+async function enterAsAdmin() {
     const passInput = document.getElementById('login-password');
     const errorMsg = document.getElementById('login-error');
 
-    if (passInput.value === 'test') {
+    let ok = false;
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: passInput.value })
+        });
+        ok = res.ok && (await res.json()).ok;
+    } catch (e) { ok = false; }
+
+    if (ok) {
         currentUserRole = 'admin';
         document.getElementById('auth-overlay').classList.add('hidden');
         document.getElementById('admin-nav-section').style.display = 'block';
@@ -1050,6 +1059,222 @@ async function confirmCloseCash() {
         errEl.style.display = 'block';
         btn.disabled = false;
     }
+}
+
+// ===== Finanzas: pestañas (Gastos / Cuentas a pagar / Cheques) =====
+function switchFinTab(tab) {
+    document.querySelectorAll('.fin-tab').forEach(t => t.classList.toggle('active', t.dataset.fin === tab));
+    document.querySelectorAll('.fin-section').forEach(s => s.classList.add('hidden'));
+    document.getElementById('fin-' + tab).classList.remove('hidden');
+    if (tab === 'caja') { loadCashSession(); loadCaja(); }
+    else if (tab === 'gastos') loadExpenses();
+    else if (tab === 'payables') loadPayables();
+    else if (tab === 'checks') loadChecks();
+}
+
+// --- Gastos ---
+async function loadExpenses() {
+    const month = todayStr().slice(0, 7);
+    try {
+        const data = await fetch(`/api/expenses?month=${month}`).then(r => r.json());
+        document.getElementById('gastos-stats').innerHTML = `
+            <div class="stat-card stat-danger">
+                <span class="stat-label"><i class="ph ph-receipt-x"></i> Gastos del mes</span>
+                <span class="stat-value">${cashFmt(data.total)}</span>
+                <span class="stat-sub">${data.items.length} ${data.items.length === 1 ? 'registro' : 'registros'}</span>
+            </div>`;
+        const tbody = document.getElementById('gastos-tbody');
+        if (data.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">Sin gastos este mes.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.items.map(e => `
+            <tr>
+                <td class="num">${(e.expense_date || '').slice(0, 16)}</td>
+                <td><strong>${escapeHtml(e.description)}</strong>${e.note ? '<div class="stock-sub">' + escapeHtml(e.note) + '</div>' : ''}</td>
+                <td>${escapeHtml(e.category || '—')}</td>
+                <td><span class="pay-badge"><i class="ph ${PAY_ICONS[e.payment_method] || 'ph-money'}"></i> ${PAY_LABELS[e.payment_method] || e.payment_method || '—'}</span></td>
+                <td class="num"><strong style="color:var(--red);">${cashFmt(e.amount)}</strong></td>
+                <td class="td-actions"><button class="btn-icon danger" onclick="deleteExpense(${e.id})"><i class="ph ph-trash"></i></button></td>
+            </tr>`).join('');
+    } catch (e) { showToast('Error al cargar gastos', 'error'); }
+}
+
+async function addExpense(e) {
+    e.preventDefault();
+    const payload = {
+        description: document.getElementById('exp-desc').value,
+        amount: parseFloat(document.getElementById('exp-amount').value),
+        category: document.getElementById('exp-cat').value,
+        payment_method: document.getElementById('exp-method').value
+    };
+    try {
+        const res = await fetch('/api/expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo registrar');
+        e.target.reset();
+        await loadExpenses();
+        showToast('Gasto registrado');
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deleteExpense(id) {
+    if (!confirm('¿Eliminar este gasto?')) return;
+    try {
+        await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+        await loadExpenses();
+        showToast('Gasto eliminado');
+    } catch (e) { showToast('Error al eliminar', 'error'); }
+}
+
+// --- Cuentas a pagar ---
+async function loadPayables() {
+    try {
+        const data = await fetch('/api/payables').then(r => r.json());
+        document.getElementById('payables-stats').innerHTML = `
+            <div class="stat-card ${data.pending > 0 ? 'stat-warn' : ''}">
+                <span class="stat-label"><i class="ph ph-invoice"></i> Pendiente de pago</span>
+                <span class="stat-value">${cashFmt(data.pending)}</span>
+            </div>`;
+        const tbody = document.getElementById('payables-tbody');
+        if (data.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No hay cuentas registradas.</td></tr>';
+            return;
+        }
+        const today = todayStr();
+        tbody.innerHTML = data.items.map(p => {
+            const paid = p.status === 'pagado';
+            const overdue = !paid && p.due_date && p.due_date < today;
+            return `
+            <tr>
+                <td><strong>${escapeHtml(p.provider || '—')}</strong></td>
+                <td>${escapeHtml(p.description || '—')}</td>
+                <td class="num" ${overdue ? 'style="color:var(--red);"' : ''}>${p.due_date || '—'}${overdue ? ' ⚠' : ''}</td>
+                <td class="num">${cashFmt(p.amount)}</td>
+                <td><span class="stock-badge ${paid ? 'badge-ok' : 'badge-low'}">${paid ? 'Pagado' : 'Pendiente'}</span></td>
+                <td class="td-actions">
+                    ${paid ? '' : `<button class="btn btn-secondary btn-sm" onclick="payPayable(${p.id})"><i class="ph ph-check"></i> Pagar</button>`}
+                    <button class="btn-icon danger" onclick="deletePayable(${p.id})"><i class="ph ph-trash"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (e) { showToast('Error al cargar cuentas', 'error'); }
+}
+
+async function addPayable(e) {
+    e.preventDefault();
+    const payload = {
+        provider: document.getElementById('pay-provider').value,
+        description: document.getElementById('pay-desc').value,
+        amount: parseFloat(document.getElementById('pay-amount').value),
+        due_date: document.getElementById('pay-due').value
+    };
+    try {
+        const res = await fetch('/api/payables', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo registrar');
+        e.target.reset();
+        await loadPayables();
+        showToast('Cuenta registrada');
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function payPayable(id) {
+    try {
+        await fetch(`/api/payables/${id}/pay`, { method: 'POST' });
+        await loadPayables();
+        showToast('Cuenta marcada como pagada');
+    } catch (e) { showToast('Error', 'error'); }
+}
+
+async function deletePayable(id) {
+    if (!confirm('¿Eliminar esta cuenta?')) return;
+    try {
+        await fetch(`/api/payables/${id}`, { method: 'DELETE' });
+        await loadPayables();
+        showToast('Cuenta eliminada');
+    } catch (e) { showToast('Error al eliminar', 'error'); }
+}
+
+// --- Cheques ---
+const CHECK_STATUS = {
+    cartera: { label: 'En cartera', cls: 'badge-low' },
+    depositado: { label: 'Depositado', cls: 'badge-scaled' },
+    cobrado: { label: 'Cobrado', cls: 'badge-ok' },
+    entregado: { label: 'Entregado', cls: 'badge-ok' },
+    rechazado: { label: 'Rechazado', cls: 'badge-out' }
+};
+
+async function loadChecks() {
+    try {
+        const data = await fetch('/api/checks').then(r => r.json());
+        document.getElementById('checks-stats').innerHTML = `
+            <div class="stat-card stat-accent">
+                <span class="stat-label"><i class="ph ph-scroll"></i> Cheques en cartera</span>
+                <span class="stat-value">${cashFmt(data.inWallet)}</span>
+            </div>`;
+        const tbody = document.getElementById('checks-tbody');
+        if (data.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem;">No hay cheques registrados.</td></tr>';
+            return;
+        }
+        const today = todayStr();
+        tbody.innerHTML = data.items.map(c => {
+            const st = CHECK_STATUS[c.status] || CHECK_STATUS.cartera;
+            const overdue = c.status === 'cartera' && c.due_date && c.due_date < today;
+            const opts = ['cartera', 'depositado', 'cobrado', 'entregado', 'rechazado']
+                .map(s => `<option value="${s}" ${s === c.status ? 'selected' : ''}>${CHECK_STATUS[s].label}</option>`).join('');
+            return `
+            <tr>
+                <td>${c.type === 'emitido' ? 'Emitido' : 'Recibido'}</td>
+                <td>${escapeHtml(c.bank || '—')}</td>
+                <td class="num">${escapeHtml(c.number || '—')}</td>
+                <td class="num" ${overdue ? 'style="color:var(--red);"' : ''}>${c.due_date || '—'}${overdue ? ' ⚠' : ''}</td>
+                <td class="num">${cashFmt(c.amount)}</td>
+                <td><span class="stock-badge ${st.cls}">${st.label}</span></td>
+                <td class="td-actions">
+                    <select class="form-input check-status-select" onchange="updateCheckStatus(${c.id}, this.value)">${opts}</select>
+                    <button class="btn-icon danger" onclick="deleteCheck(${c.id})"><i class="ph ph-trash"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (e) { showToast('Error al cargar cheques', 'error'); }
+}
+
+async function addCheck(e) {
+    e.preventDefault();
+    const payload = {
+        type: document.getElementById('chk-type').value,
+        bank: document.getElementById('chk-bank').value,
+        number: document.getElementById('chk-number').value,
+        amount: parseFloat(document.getElementById('chk-amount').value),
+        due_date: document.getElementById('chk-due').value
+    };
+    try {
+        const res = await fetch('/api/checks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo registrar');
+        e.target.reset();
+        await loadChecks();
+        showToast('Cheque registrado');
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function updateCheckStatus(id, status) {
+    try {
+        await fetch(`/api/checks/${id}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+        await loadChecks();
+        showToast('Estado actualizado');
+    } catch (e) { showToast('Error', 'error'); }
+}
+
+async function deleteCheck(id) {
+    if (!confirm('¿Eliminar este cheque?')) return;
+    try {
+        await fetch(`/api/checks/${id}`, { method: 'DELETE' });
+        await loadChecks();
+        showToast('Cheque eliminado');
+    } catch (e) { showToast('Error al eliminar', 'error'); }
 }
 
 async function loadCaja() {
@@ -2070,6 +2295,7 @@ async function loadBackups() {
                 <i class="ph ph-file-archive"></i>
                 <span class="backup-name mono">${b.file}</span>
                 <span class="backup-size mono">${kb(b.size)}</span>
+                <button class="btn btn-secondary btn-sm" onclick="restoreBackup('${b.file}')"><i class="ph ph-clock-counter-clockwise"></i> Restaurar</button>
             </div>
         `).join('');
     } catch (e) {
@@ -2085,6 +2311,45 @@ async function createBackup() {
         await loadBackups();
         showToast('Backup creado: ' + data.file);
     } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function restoreBackup(file) {
+    if (!confirm(`¿Restaurar la base desde "${file}"?\n\nSe reemplazarán TODOS los datos actuales por los de esa copia.\n(Se hace un resguardo automático del estado actual antes de restaurar.)`)) return;
+    try {
+        const res = await fetch('/api/restore', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo restaurar');
+        showToast('Base restaurada. Recargando...');
+        setTimeout(() => location.reload(), 1200);
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+// Cambio de contraseña de administrador
+async function changePassword(e) {
+    e.preventDefault();
+    const cur = document.getElementById('pass-current').value;
+    const nw = document.getElementById('pass-new').value;
+    const cf = document.getElementById('pass-confirm').value;
+    const errEl = document.getElementById('pass-error');
+    if (nw.length < 4) { errEl.textContent = 'La nueva contraseña debe tener al menos 4 caracteres.'; errEl.style.display = 'block'; return; }
+    if (nw !== cf) { errEl.textContent = 'Las contraseñas nuevas no coinciden.'; errEl.style.display = 'block'; return; }
+    try {
+        const res = await fetch('/api/auth/password', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current: cur, new_password: nw })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo cambiar la contraseña');
+        document.getElementById('password-form').reset();
+        errEl.style.display = 'none';
+        showToast('Contraseña actualizada');
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+    }
 }
 
 function renderLogoPreview() {

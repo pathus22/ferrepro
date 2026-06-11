@@ -16,10 +16,11 @@
     con ventas a cuenta desde el POS aplicando descuento del corredor, estado de
     cuenta con saldo corrido, cobranzas, lista de precios imprimible). Falta:
     sub-lista de obras/proyectos por corredor y exportar a Excel.
-- Construir el Módulo de Finanzas y Cajas
-    [PARCIAL 2026-06-11] Caja e Historial + Dashboard + apertura/cierre de caja con
-    arqueo listos. Falta: egresos/gastos, cuentas a pagar, cheques.
-- [HECHO 2026-06-11] Backup automático de la DB (al iniciar + cada 6 hs, rotación 30
-    copias, backup manual desde Configuración). Falta: restaurar desde backup vía UI.
+- [HECHO 2026-06-11] Módulo de Finanzas y Cajas COMPLETO: Caja+arqueo, Dashboard,
+    Gastos/egresos, Cuentas a pagar (con vencimientos/estado), Cheques (cartera con
+    estados) — en pestañas dentro de la vista Finanzas.
+- [HECHO 2026-06-11] Backup automático + restaurar DB desde backup vía UI.
+- [HECHO 2026-06-11] Contraseña de admin configurable y hasheada server-side (ya no
+    está hardcodeada como "test"; default inicial "admin", se cambia en Configuración).
 - [HECHO 2026-06-10] Pantalla ABM dedicada de categorías y proveedores (vista
     "Categorías y Prov." con alta/edición/borrado; rename propaga a productos)

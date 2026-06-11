@@ -133,9 +133,11 @@ FASE 2 — VENTAS, FACTURACIÓN Y TICKET
   [ ] Numeración de comprobantes (correlativa)
 
 [ AUTENTICACIÓN Y ROLES ]
-  [x] Sistema de autenticación básico client-side (contraseña "test")
   [x] Roles: mostrador (solo POS) y admin (todo)
-  [ ] Autenticación real server-side (contraseña hasheada, sesión o token)
+  [x] Contraseña de admin server-side, hasheada (scrypt + salt) y configurable
+      desde la UI — 2026-06-11. Default inicial "admin" (cambiable en Configuración).
+      POST /api/auth/login, PUT /api/auth/password. Ya NO está hardcodeada en el JS.
+  [ ] Sesión/token que proteja los endpoints (hoy la API es abierta en la LAN local)
   [ ] Múltiples usuarios con diferentes contraseñas
   [ ] Log de acciones por usuario (auditoría básica)
   [ ] Rol adicional: "supervisor" (puede ver reportes pero no configurar)
@@ -189,11 +191,13 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
 --------------------------------------------------------------------------------
 
 [ MÓDULO DE GASTOS Y COMPRAS ]
-  [x] Vista "Finanzas y Cajas" operativa (Caja e Historial) — ya no es placeholder
-  [ ] Carga de facturas de proveedor
-  [ ] Integración: al cargar factura, actualiza stock y costo de productos
-  [ ] Registro de cuentas a pagar (proveedores con saldo)
-  [ ] Programación de vencimientos de pago
+  [x] Vista "Finanzas y Cajas" con pestañas: Caja / Gastos / Cuentas a pagar / Cheques
+  [x] Registro de gastos/egresos — 2026-06-11 (descripción, importe, categoría,
+      medio de pago; total del mes; tabla expenses; los gastos en efectivo se
+      restan del efectivo esperado en el arqueo de caja)
+  [x] Cuentas a pagar a proveedores con vencimiento y estado pendiente/pagado,
+      alerta visual de vencidas — 2026-06-11 (tabla payables)
+  [ ] Carga de facturas de proveedor que actualice stock y costo automáticamente
 
 [ MÓDULO DE CAJA Y BANCOS ]
   [x] Resumen de caja del día — vista "Caja e Historial" (2026-06-10):
@@ -204,9 +208,9 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
   [x] Apertura y cierre de caja diario con arqueo — 2026-06-11
       (fondo inicial, efectivo esperado = fondo + ventas efectivo, conteo y
       diferencia; tabla cash_sessions; endpoints /api/cash/open|close|current|history)
-  [ ] Registro de egresos (gastos, pagos a proveedores)
-  [ ] Cartera de cheques recibidos con vencimientos
-  [ ] Vencimientos de servicios / obligaciones (alerta configurable)
+  [x] Registro de egresos/gastos (pestaña Gastos) — 2026-06-11
+  [x] Cartera de cheques (recibidos/emitidos) con vencimiento y estado
+      (cartera/depositado/cobrado/entregado/rechazado) — 2026-06-11 (tabla checks)
   [ ] Conciliación básica con extracto bancario
 
 [ ESTADÍSTICAS Y DASHBOARD ]
@@ -241,14 +245,15 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
   [ ] Favicon e iconografía consistente
 
 [ SEGURIDAD Y CONFIGURACIÓN ]
-  [ ] Contraseña admin configurable (hoy hardcodeada como "test")
+  [x] Contraseña admin configurable y hasheada server-side (scrypt) — 2026-06-11
   [x] Datos de la empresa configurables (nombre, CUIT, condición IVA, dirección,
       teléfono, email, logo, nota al pie) — vista Configuración, usados en
       presupuestos/tiques. Cada instalación = una ferretería adherida. (2026-06-11)
   [x] Backup automático de la base de datos SQLite — 2026-06-11
       (al iniciar y cada 6 hs en backups/, conserva 30 copias, rotación automática;
       backup manual desde Configuración con listado de copias; db.backup() online)
-  [ ] Recuperación ante errores de la DB (restaurar desde un backup vía UI)
+  [x] Restaurar la DB desde un backup vía UI — 2026-06-11 (POST /api/restore con
+      ATTACH + defer_foreign_keys; resguardo automático del estado actual antes)
 
 [ DESPLIEGUE ]
   [x] start.bat inicia el servidor node
@@ -274,15 +279,15 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~3 ítems (sub-obras por corredor, export Excel, pedidos a Excel)
 
   FASE 4 — Finanzas y Administración
-    Completados:  ~10 ítems (Caja e Historial + Dashboard + apertura/cierre con arqueo)
-    Pendientes:   ~8 ítems
+    Completados:  ~15 ítems (Caja + arqueo + Dashboard + Gastos + Cuentas a pagar + Cheques)
+    Pendientes:   ~3 ítems
 
   Transversales
-    Completados:  ~11 ítems (datos de empresa + backup automático de la DB)
-    Pendientes:   ~7 ítems
+    Completados:  ~14 ítems (datos empresa + backup + restore + contraseña configurable)
+    Pendientes:   ~4 ítems
 
-  TOTAL GENERAL: ~88 completados / ~46 pendientes
-  Avance estimado: ~66% del sistema completo
+  TOTAL GENERAL: ~98 completados / ~36 pendientes
+  Avance estimado: ~73% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
@@ -321,11 +326,16 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
   9. [HECHO 2026-06-11] Apertura/cierre de caja con arqueo + backup automático de
      la DB + tique automático tras cobrar con su N°.
 
-  10. Completar Finanzas: registro de egresos/gastos, cuentas a pagar a
-      proveedores, cartera de cheques.
+  10. [HECHO 2026-06-11] Finanzas completas: gastos/egresos, cuentas a pagar,
+      cheques (pestañas en Finanzas) + contraseña admin configurable (server-side)
+      + restaurar DB desde backup.
 
-  11. Pendientes varios: importación de Excel (pedir Excel de ejemplo), restaurar
-      DB desde backup vía UI, integración fiscal (a definir), contraseña admin
-      configurable, módulo de gastos/compras.
+  11. Pendientes destacados:
+      - Importación de Excel de catálogos (requiere Excel de ejemplo del usuario)
+      - Carga de factura de proveedor que actualice stock+costo (compras)
+      - Integración fiscal AFIP (a definir)
+      - start.bat: abrir navegador + doc de acceso por IP en red
+      - Sesión/token para proteger la API (hoy abierta en la LAN)
+      - Stock Galpón/Local y sub-obras por corredor (requieren definición)
 
 ================================================================================

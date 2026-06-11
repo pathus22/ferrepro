@@ -409,43 +409,118 @@
                 </div>
             </section>
 
-            <!-- View: Finanzas / Caja e Historial -->
+            <!-- View: Finanzas (Caja, Gastos, Cuentas a pagar, Cheques) -->
             <section id="view-finances" class="view hidden">
                 <header class="view-header">
-                    <h1>Caja e Historial</h1>
-                    <p class="view-desc">Ventas registradas y resumen del día</p>
-                    <div class="header-actions">
+                    <h1>Finanzas y Cajas</h1>
+                    <p class="view-desc">Caja diaria, gastos, cuentas a pagar y cheques</p>
+                </header>
+
+                <div class="fin-tabs">
+                    <button class="fin-tab active" data-fin="caja" onclick="switchFinTab('caja')"><i class="ph ph-cash-register"></i> Caja</button>
+                    <button class="fin-tab" data-fin="gastos" onclick="switchFinTab('gastos')"><i class="ph ph-receipt-x"></i> Gastos</button>
+                    <button class="fin-tab" data-fin="payables" onclick="switchFinTab('payables')"><i class="ph ph-invoice"></i> Cuentas a pagar</button>
+                    <button class="fin-tab" data-fin="checks" onclick="switchFinTab('checks')"><i class="ph ph-scroll"></i> Cheques</button>
+                </div>
+
+                <!-- TAB: CAJA -->
+                <div class="fin-section" id="fin-caja">
+                    <div class="fin-toolbar">
                         <div class="date-picker">
                             <i class="ph ph-calendar-blank"></i>
                             <input type="date" id="caja-date" onchange="loadCaja()">
                         </div>
-                        <button class="btn btn-secondary" onclick="setCajaToday()"><i class="ph ph-clock-counter-clockwise"></i> Hoy</button>
+                        <button class="btn btn-secondary btn-sm" onclick="setCajaToday()"><i class="ph ph-clock-counter-clockwise"></i> Hoy</button>
                     </div>
-                </header>
+                    <div class="panel cash-panel" id="cash-panel"></div>
+                    <div class="stats-grid" id="caja-stats"></div>
+                    <div id="caja-methods" class="pay-breakdown"></div>
+                    <div class="panel table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Hora</th><th>Detalle</th><th>Medio de pago</th><th>Comprob.</th><th>Total</th></tr>
+                            </thead>
+                            <tbody id="caja-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
 
-                <!-- Estado de la caja (apertura / cierre) -->
-                <div class="panel cash-panel" id="cash-panel"></div>
+                <!-- TAB: GASTOS -->
+                <div class="fin-section hidden" id="fin-gastos">
+                    <div class="stats-grid" id="gastos-stats"></div>
+                    <div class="panel fin-form-panel">
+                        <h3 class="fin-form-title"><i class="ph ph-plus-circle"></i> Registrar gasto</h3>
+                        <form class="fin-form" onsubmit="addExpense(event)">
+                            <input type="text" id="exp-desc" class="form-input" placeholder="Descripción" required>
+                            <input type="number" id="exp-amount" class="form-input" min="0" step="0.01" placeholder="Importe $" required>
+                            <input type="text" id="exp-cat" class="form-input" placeholder="Categoría (opcional)">
+                            <select id="exp-method" class="form-input">
+                                <option value="efectivo">Efectivo</option>
+                                <option value="debito">Débito</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="cheque">Cheque</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary"><i class="ph ph-check"></i> Agregar</button>
+                        </form>
+                    </div>
+                    <div class="panel table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Medio</th><th>Importe</th><th></th></tr>
+                            </thead>
+                            <tbody id="gastos-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
 
-                <!-- Tarjetas de resumen -->
-                <div class="stats-grid" id="caja-stats"></div>
+                <!-- TAB: CUENTAS A PAGAR -->
+                <div class="fin-section hidden" id="fin-payables">
+                    <div class="stats-grid" id="payables-stats"></div>
+                    <div class="panel fin-form-panel">
+                        <h3 class="fin-form-title"><i class="ph ph-plus-circle"></i> Nueva cuenta a pagar</h3>
+                        <form class="fin-form" onsubmit="addPayable(event)">
+                            <input type="text" id="pay-provider" class="form-input" placeholder="Proveedor">
+                            <input type="text" id="pay-desc" class="form-input" placeholder="Descripción / factura">
+                            <input type="number" id="pay-amount" class="form-input" min="0" step="0.01" placeholder="Importe $" required>
+                            <input type="date" id="pay-due" class="form-input" title="Vencimiento">
+                            <button type="submit" class="btn btn-primary"><i class="ph ph-check"></i> Agregar</button>
+                        </form>
+                    </div>
+                    <div class="panel table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Proveedor</th><th>Descripción</th><th>Vencimiento</th><th>Importe</th><th>Estado</th><th></th></tr>
+                            </thead>
+                            <tbody id="payables-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
 
-                <!-- Desglose por medio de pago -->
-                <div id="caja-methods" class="pay-breakdown"></div>
-
-                <!-- Tabla de ventas -->
-                <div class="panel table-wrapper">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Hora</th>
-                                <th>Detalle</th>
-                                <th>Medio de pago</th>
-                                <th>Comprob.</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="caja-tbody"></tbody>
-                    </table>
+                <!-- TAB: CHEQUES -->
+                <div class="fin-section hidden" id="fin-checks">
+                    <div class="stats-grid" id="checks-stats"></div>
+                    <div class="panel fin-form-panel">
+                        <h3 class="fin-form-title"><i class="ph ph-plus-circle"></i> Registrar cheque</h3>
+                        <form class="fin-form" onsubmit="addCheck(event)">
+                            <select id="chk-type" class="form-input">
+                                <option value="recibido">Recibido</option>
+                                <option value="emitido">Emitido</option>
+                            </select>
+                            <input type="text" id="chk-bank" class="form-input" placeholder="Banco">
+                            <input type="text" id="chk-number" class="form-input" placeholder="Número">
+                            <input type="number" id="chk-amount" class="form-input" min="0" step="0.01" placeholder="Importe $" required>
+                            <input type="date" id="chk-due" class="form-input" title="Vencimiento">
+                            <button type="submit" class="btn btn-primary"><i class="ph ph-check"></i> Agregar</button>
+                        </form>
+                    </div>
+                    <div class="panel table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Tipo</th><th>Banco</th><th>Número</th><th>Vencimiento</th><th>Importe</th><th>Estado</th><th></th></tr>
+                            </thead>
+                            <tbody id="checks-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -523,6 +598,31 @@
                         </div>
                     </div>
                 </form>
+
+                <!-- Seguridad: cambiar contraseña -->
+                <div class="panel settings-backup-panel">
+                    <h2 class="settings-section-title"><i class="ph ph-lock-key"></i> Seguridad — Contraseña de administrador</h2>
+                    <form id="password-form" onsubmit="changePassword(event)">
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="pass-current">Contraseña actual</label>
+                                <input type="password" id="pass-current" class="form-input" autocomplete="current-password">
+                            </div>
+                            <div class="form-field">
+                                <label for="pass-new">Nueva contraseña</label>
+                                <input type="password" id="pass-new" class="form-input" autocomplete="new-password">
+                            </div>
+                            <div class="form-field">
+                                <label for="pass-confirm">Repetir nueva</label>
+                                <input type="password" id="pass-confirm" class="form-input" autocomplete="new-password">
+                            </div>
+                        </div>
+                        <p class="form-error" id="pass-error" style="display:none;"></p>
+                        <div class="settings-save-row">
+                            <button type="submit" class="btn btn-primary"><i class="ph ph-key"></i> Cambiar contraseña</button>
+                        </div>
+                    </form>
+                </div>
 
                 <!-- Backups -->
                 <div class="panel settings-backup-panel">
