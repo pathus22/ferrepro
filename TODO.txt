@@ -22,6 +22,9 @@
 - [HECHO 2026-06-11] Backup automático + restaurar DB desde backup vía UI.
 - [HECHO 2026-06-11] Contraseña de admin configurable y hasheada server-side (ya no
     está hardcodeada como "test"; default inicial "admin", se cambia en Configuración).
+- [HECHO 2026-06-11] Mejoras de Productos: búsqueda + filtros (categoría/proveedor),
+    ordenamiento por columnas, paginación (25/pág), columna de stock, y ficha de producto
+    con historial de costos (tabla cost_history) y de movimientos de stock.
 - [HECHO 2026-06-11] start.bat mejorado (abre servidor en ventana propia + navegador,
     instala deps si faltan) + servidor escucha en 0.0.0.0 y muestra la IP de acceso +
     instrucciones.txt actualizado (acceso por IP, firewall, contraseña "admin", backups).

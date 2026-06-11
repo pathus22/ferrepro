@@ -77,6 +77,15 @@ function ensureNamed(table, name) {
     if (!exists) db.prepare(`INSERT INTO ${table} (name) VALUES (?)`).run(n);
 }
 
+// Registra un cambio de costo en el historial (solo si el costo realmente cambió)
+function logCostChange(productId, oldCost, newCost, source) {
+    const o = +(oldCost || 0), n = +(newCost || 0);
+    if (Math.abs(o - n) < 0.001) return;
+    db.prepare(
+        'INSERT INTO cost_history (product_id, cost, previous_cost, source) VALUES (?, ?, ?, ?)'
+    ).run(productId, n, o, source);
+}
+
 // APIS BÁSICAS - MOCKS
 
 // Obtener todos los productos (incluye precios escalonados)
@@ -101,6 +110,7 @@ app.post('/api/products', (req, res) => {
         const result = stmt.run(code, name, cost || 0, profit_margin || 50, stock || 0, min_stock || 0, category || '', provider || '', brand || '', units || '', others || '', sale_qty || 1, sale_unit || 'unidades');
         ensureNamed('categories', category);
         ensureNamed('providers', provider);
+        if (cost > 0) logCostChange(result.lastInsertRowid, 0, cost, 'alta');
         res.json({ id: result.lastInsertRowid, message: 'Producto creado' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -111,10 +121,12 @@ app.post('/api/products', (req, res) => {
 app.put('/api/products/:id', (req, res) => {
     try {
         const { code, name, cost, profit_margin, stock, min_stock, category, provider, brand, units, others, sale_qty, sale_unit } = req.body;
+        const prev = db.prepare('SELECT cost FROM products WHERE id = ?').get(req.params.id);
         const stmt = db.prepare('UPDATE products SET code = ?, name = ?, cost = ?, profit_margin = ?, stock = ?, min_stock = ?, category = ?, provider = ?, brand = ?, units = ?, others = ?, sale_qty = ?, sale_unit = ? WHERE id = ?');
         stmt.run(code, name, cost, profit_margin, stock, min_stock || 0, category, provider, brand, units, others, sale_qty || 1, sale_unit || 'unidades', req.params.id);
         ensureNamed('categories', category);
         ensureNamed('providers', provider);
+        if (prev) logCostChange(req.params.id, prev.cost, cost, 'edición');
         res.json({ message: 'Producto actualizado' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -388,6 +400,24 @@ app.get('/api/products/:id/movements', (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Ficha completa de un producto: datos + historial de costos + movimientos de stock
+app.get('/api/products/:id/detail', (req, res) => {
+    try {
+        const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+        if (!product) return res.status(404).json({ error: 'Producto no encontrado' });
+        product.scaled_prices = db.prepare(
+            'SELECT quantity, discount_percentage FROM product_prices WHERE product_id = ? ORDER BY quantity ASC'
+        ).all(product.id);
+        const costHistory = db.prepare(
+            'SELECT cost, previous_cost, source, changed_at FROM cost_history WHERE product_id = ? ORDER BY id DESC LIMIT 50'
+        ).all(req.params.id);
+        const movements = db.prepare(
+            'SELECT type, quantity, stock_after, reason, created_at FROM stock_movements WHERE product_id = ? ORDER BY id DESC LIMIT 50'
+        ).all(req.params.id);
+        res.json({ product, costHistory, movements });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ===== PEDIDOS A PROVEEDOR =====
 
 // Sugerencias de reposición: productos sin stock o en/bajo el mínimo, agrupados por proveedor.
@@ -497,6 +527,7 @@ app.post('/api/purchase-orders/:id/receive', (req, res) => {
                 updStock.run(qty, newCost, prod.cost, item.product_id);
                 updItem.run(qty, item.id);
                 logMov.run(item.product_id, qty, newStock, `Recepción pedido #${order.id}`);
+                logCostChange(item.product_id, prod.cost, newCost, 'compra');
                 count++;
             }
 

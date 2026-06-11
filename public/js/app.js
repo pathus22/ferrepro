@@ -597,61 +597,213 @@ function showToast(message, type = 'success') {
 
 // Administración de Productos Logic
 let allProductsAdmin = [];
+let adminSort = { key: 'name', dir: 'asc' };
+let adminPage = 1;
+const ADMIN_PAGE_SIZE = 25;
+
+const adminPrice = p => p.cost * (1 + p.profit_margin / 100);
 
 async function loadProductsAdmin() {
     const tbody = document.getElementById('admin-products-tbody');
-    tbody.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9">Cargando...</td></tr>';
 
     allProductsAdmin = await fetchProducts();
 
-    // Resetear buscador al recargar
+    // Resetear buscador y filtros
     const searchInput = document.getElementById('admin-search');
     if (searchInput) searchInput.value = '';
+    adminPage = 1;
 
-    renderProductsAdminTable(allProductsAdmin);
+    // Poblar filtros con los valores en uso
+    const cats = [...new Set(allProductsAdmin.map(p => p.category).filter(Boolean))].sort();
+    const provs = [...new Set(allProductsAdmin.map(p => p.provider).filter(Boolean))].sort();
+    fillFilterSelect('admin-filter-cat', 'Todas las categorías', cats);
+    fillFilterSelect('admin-filter-prov', 'Todos los proveedores', provs);
+
+    renderAdminProducts();
 }
 
-function filterProductsAdmin(term) {
-    const t = term.toLowerCase();
-    const filtered = allProductsAdmin.filter(p =>
-        p.name.toLowerCase().includes(t) ||
-        p.code.toLowerCase().includes(t) ||
-        (p.brand || '').toLowerCase().includes(t) ||
-        (p.provider || '').toLowerCase().includes(t)
-    );
-    renderProductsAdminTable(filtered);
+function fillFilterSelect(id, allLabel, values) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = `<option value="">${allLabel}</option>` +
+        values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    if (values.includes(current)) sel.value = current;
 }
 
-function renderProductsAdminTable(products) {
+function adminFilterChanged() { adminPage = 1; renderAdminProducts(); }
+
+function sortAdmin(key) {
+    if (adminSort.key === key) adminSort.dir = adminSort.dir === 'asc' ? 'desc' : 'asc';
+    else adminSort = { key, dir: 'asc' };
+    adminPage = 1;
+    renderAdminProducts();
+}
+
+function adminGoPage(n) { adminPage = n; renderAdminProducts(); }
+
+function renderAdminProducts() {
+    const term = (document.getElementById('admin-search').value || '').toLowerCase();
+    const catF = document.getElementById('admin-filter-cat').value;
+    const provF = document.getElementById('admin-filter-prov').value;
+
+    let list = allProductsAdmin.filter(p => {
+        if (catF && (p.category || '') !== catF) return false;
+        if (provF && (p.provider || '') !== provF) return false;
+        if (term && !(
+            p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term) ||
+            (p.brand || '').toLowerCase().includes(term) || (p.provider || '').toLowerCase().includes(term)
+        )) return false;
+        return true;
+    });
+
+    // Ordenar
+    const k = adminSort.key, dir = adminSort.dir === 'asc' ? 1 : -1;
+    const numeric = ['stock', 'cost', 'profit_margin', 'price'].includes(k);
+    list.sort((a, b) => {
+        let va = k === 'price' ? adminPrice(a) : a[k];
+        let vb = k === 'price' ? adminPrice(b) : b[k];
+        if (numeric) return ((+va || 0) - (+vb || 0)) * dir;
+        va = (va || '').toString().toLowerCase();
+        vb = (vb || '').toString().toLowerCase();
+        return va < vb ? -dir : va > vb ? dir : 0;
+    });
+
+    // Paginar
+    const total = list.length;
+    const pages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
+    if (adminPage > pages) adminPage = pages;
+    const start = (adminPage - 1) * ADMIN_PAGE_SIZE;
+    renderAdminRows(list.slice(start, start + ADMIN_PAGE_SIZE));
+    renderAdminPagination(total, pages);
+    updateSortIndicators();
+}
+
+function renderAdminRows(products) {
     const tbody = document.getElementById('admin-products-tbody');
-    tbody.innerHTML = '';
-
     if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--muted);">Sin resultados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--muted);">Sin resultados</td></tr>';
         return;
     }
-
+    tbody.innerHTML = '';
     products.forEach(p => {
-        const price = p.cost * (1 + p.profit_margin / 100);
-        const scaledBadge = p.has_scaled_prices
-            ? `<span class="badge badge-scaled">Escalonado</span>`
-            : '';
+        const price = adminPrice(p);
+        const scaledBadge = p.has_scaled_prices ? `<span class="badge badge-scaled">Escalonado</span>` : '';
+        const st = p.stock <= 0 ? 'out' : (p.min_stock > 0 && p.stock <= p.min_stock ? 'low' : 'ok');
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td class="num">${p.code}</td>
-            <td><strong>${p.name}</strong></td>
-            <td>${p.brand || '-'}</td>
-            <td>${p.provider || '-'}</td>
+            <td><strong>${escapeHtml(p.name)}</strong></td>
+            <td>${escapeHtml(p.brand || '-')}</td>
+            <td>${escapeHtml(p.provider || '-')}</td>
+            <td class="num"><span class="stock-qty ${st}">${p.stock}</span></td>
             <td class="num">$${p.cost.toFixed(2)}</td>
             <td><span class="badge badge-margin">${p.profit_margin}%</span></td>
             <td class="num"><strong>$${price.toFixed(2)}</strong>${scaledBadge}</td>
             <td class="td-actions">
-                <button class="btn-icon" onclick='showProductModal(${JSON.stringify(p)})'><i class="ph ph-pencil-simple"></i></button>
-                <button class="btn-icon danger" onclick='deleteProduct(${p.id})'><i class="ph ph-trash"></i></button>
+                <button class="btn-icon" title="Ver ficha" onclick="showProductDetail(${p.id})"><i class="ph ph-info"></i></button>
+                <button class="btn-icon" title="Editar" onclick='showProductModal(${JSON.stringify(p)})'><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-icon danger" title="Eliminar" onclick='deleteProduct(${p.id})'><i class="ph ph-trash"></i></button>
             </td>
         `;
         tbody.appendChild(tr);
     });
+}
+
+function renderAdminPagination(total, pages) {
+    const el = document.getElementById('admin-pagination');
+    if (total === 0) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+        <span class="pag-info">${total} producto${total === 1 ? '' : 's'} · página ${adminPage} de ${pages}</span>
+        <div class="pag-btns">
+            <button class="btn btn-secondary btn-sm" ${adminPage <= 1 ? 'disabled' : ''} onclick="adminGoPage(${adminPage - 1})"><i class="ph ph-caret-left"></i></button>
+            <button class="btn btn-secondary btn-sm" ${adminPage >= pages ? 'disabled' : ''} onclick="adminGoPage(${adminPage + 1})"><i class="ph ph-caret-right"></i></button>
+        </div>`;
+}
+
+function updateSortIndicators() {
+    document.querySelectorAll('.data-table.sortable th[data-sort]').forEach(th => {
+        const ico = th.querySelector('.sort-ico');
+        if (!ico) return;
+        if (th.dataset.sort === adminSort.key) {
+            ico.className = `ph ${adminSort.dir === 'asc' ? 'ph-sort-ascending' : 'ph-sort-descending'} sort-ico active`;
+        } else {
+            ico.className = 'ph ph-arrows-down-up sort-ico';
+        }
+    });
+}
+
+// --- Ficha del producto (historial de costos + movimientos de stock) ---
+const MOV_LABELS = { entrada: 'Entrada', salida: 'Salida', ajuste: 'Ajuste', venta: 'Venta' };
+const MOV_COLORS = { entrada: 'var(--green)', salida: 'var(--red)', ajuste: 'var(--amber)', venta: 'var(--muted)' };
+
+async function showProductDetail(id) {
+    try {
+        const d = await fetch(`/api/products/${id}/detail`).then(r => r.json());
+        if (d.error) throw new Error(d.error);
+        const p = d.product;
+        const base = p.cost * (1 + p.profit_margin / 100);
+        const money = n => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        const row = (k, v) => v || v === 0 ? `<div class="info-row"><span class="k">${k}</span><span class="v">${v}</span></div>` : '';
+
+        const costRows = d.costHistory.length
+            ? d.costHistory.map(h => `
+                <tr>
+                    <td class="num">${(h.changed_at || '').slice(0, 16)}</td>
+                    <td>${escapeHtml(h.source || '—')}</td>
+                    <td class="num">${money(h.previous_cost)}</td>
+                    <td class="num"><strong>${money(h.cost)}</strong> ${h.cost > h.previous_cost ? '<span style="color:var(--red)">▲</span>' : h.cost < h.previous_cost ? '<span style="color:var(--green)">▼</span>' : ''}</td>
+                </tr>`).join('')
+            : '<tr><td colspan="4" style="text-align:center;color:var(--muted);">Sin cambios de costo registrados.</td></tr>';
+
+        const movRows = d.movements.length
+            ? d.movements.map(m => `
+                <tr>
+                    <td class="num">${(m.created_at || '').slice(0, 16)}</td>
+                    <td><span style="color:${MOV_COLORS[m.type] || 'var(--text)'};">${MOV_LABELS[m.type] || m.type}</span></td>
+                    <td class="num">${m.quantity > 0 ? '+' : ''}${m.quantity}</td>
+                    <td class="num">${m.stock_after}</td>
+                    <td>${escapeHtml(m.reason || '—')}</td>
+                </tr>`).join('')
+            : '<tr><td colspan="5" style="text-align:center;color:var(--muted);">Sin movimientos registrados.</td></tr>';
+
+        document.getElementById('product-detail-content').innerHTML = `
+            <h2 class="info-title">${escapeHtml(p.name)}</h2>
+            <p class="info-code">CÓD. ${escapeHtml(p.code)}</p>
+            <div class="info-section">
+                ${row('Marca', escapeHtml(p.brand || ''))}
+                ${row('Categoría', escapeHtml(p.category || ''))}
+                ${row('Proveedor', escapeHtml(p.provider || ''))}
+                ${row('Costo actual', '<strong>' + money(p.cost) + '</strong>')}
+                ${row('Margen', p.profit_margin + '%')}
+                ${row('Precio de venta', '<strong>' + money(base) + '</strong>')}
+                ${row('Stock', p.stock + (p.min_stock ? ' (mín. ' + p.min_stock + ')' : ''))}
+            </div>
+            <h3 class="cd-statement-title" style="border:none;padding-top:0;"><i class="ph ph-chart-line"></i> Historial de costos</h3>
+            <div class="table-wrapper" style="box-shadow:none;">
+                <table class="data-table">
+                    <thead><tr><th>Fecha</th><th>Origen</th><th>Costo ant.</th><th>Costo nuevo</th></tr></thead>
+                    <tbody>${costRows}</tbody>
+                </table>
+            </div>
+            <h3 class="cd-statement-title"><i class="ph ph-arrows-down-up"></i> Movimientos de stock</h3>
+            <div class="table-wrapper" style="box-shadow:none;">
+                <table class="data-table">
+                    <thead><tr><th>Fecha</th><th>Tipo</th><th>Cant.</th><th>Stock</th><th>Motivo</th></tr></thead>
+                    <tbody>${movRows}</tbody>
+                </table>
+            </div>
+        `;
+        document.getElementById('product-detail-modal').classList.remove('hidden');
+    } catch (e) {
+        showToast('Error al cargar la ficha del producto', 'error');
+    }
+}
+
+function closeProductDetail() {
+    document.getElementById('product-detail-modal').classList.add('hidden');
 }
 
 // Auth / Login Mocks

@@ -163,6 +163,17 @@ function initDB() {
             paid_at DATETIME
         );
 
+        -- Historial de cambios de costo por producto
+        CREATE TABLE IF NOT EXISTS cost_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            cost REAL NOT NULL,
+            previous_cost REAL,
+            source TEXT,                            -- alta / edición / compra
+            changed_at DATETIME DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (product_id) REFERENCES products(id)
+        );
+
         -- Cartera de cheques
         CREATE TABLE IF NOT EXISTS checks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

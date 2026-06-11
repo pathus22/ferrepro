@@ -241,22 +241,27 @@
                     </div>
                 </header>
 
-                <div class="search-bar" style="margin-bottom: 0.9rem;">
-                    <i class="ph ph-magnifying-glass"></i>
-                    <input type="text" id="admin-search" placeholder="Buscar por código, descripción, marca o proveedor..." autocomplete="off" oninput="filterProductsAdmin(this.value)">
+                <div class="products-toolbar">
+                    <div class="search-bar">
+                        <i class="ph ph-magnifying-glass"></i>
+                        <input type="text" id="admin-search" placeholder="Buscar por código, descripción, marca o proveedor..." autocomplete="off" oninput="adminFilterChanged()">
+                    </div>
+                    <select id="admin-filter-cat" class="form-input" onchange="adminFilterChanged()"><option value="">Todas las categorías</option></select>
+                    <select id="admin-filter-prov" class="form-input" onchange="adminFilterChanged()"><option value="">Todos los proveedores</option></select>
                 </div>
 
                 <div class="panel table-wrapper">
-                    <table class="data-table">
+                    <table class="data-table sortable">
                         <thead>
                             <tr>
-                                <th>Código</th>
-                                <th>Descripción</th>
-                                <th>Marca</th>
-                                <th>Proveedor</th>
-                                <th>Costo</th>
-                                <th>Margen</th>
-                                <th>Precio Venta</th>
+                                <th data-sort="code" onclick="sortAdmin('code')">Código <i class="ph ph-arrows-down-up sort-ico"></i></th>
+                                <th data-sort="name" onclick="sortAdmin('name')">Descripción <i class="ph ph-arrows-down-up sort-ico"></i></th>
+                                <th data-sort="brand" onclick="sortAdmin('brand')">Marca <i class="ph ph-arrows-down-up sort-ico"></i></th>
+                                <th data-sort="provider" onclick="sortAdmin('provider')">Proveedor <i class="ph ph-arrows-down-up sort-ico"></i></th>
+                                <th data-sort="stock" onclick="sortAdmin('stock')">Stock <i class="ph ph-arrows-down-up sort-ico"></i></th>
+                                <th data-sort="cost" onclick="sortAdmin('cost')">Costo <i class="ph ph-arrows-down-up sort-ico"></i></th>
+                                <th data-sort="profit_margin" onclick="sortAdmin('profit_margin')">Margen <i class="ph ph-arrows-down-up sort-ico"></i></th>
+                                <th data-sort="price" onclick="sortAdmin('price')">Precio Venta <i class="ph ph-arrows-down-up sort-ico"></i></th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -265,6 +270,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="pagination" id="admin-pagination"></div>
             </section>
 
             <!-- View: Categorías y Proveedores (ABM) -->
@@ -820,6 +826,14 @@
         <div class="modal-content">
             <button class="close-btn" onclick="document.getElementById('product-info-modal').classList.add('hidden')"><i class="ph ph-x"></i></button>
             <div id="product-info-content"></div>
+        </div>
+    </div>
+
+    <!-- PRODUCT DETAIL / FICHA MODAL (admin) -->
+    <div id="product-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-lg">
+            <button class="close-btn" onclick="closeProductDetail()"><i class="ph ph-x"></i></button>
+            <div id="product-detail-content"></div>
         </div>
     </div>
 

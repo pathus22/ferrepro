@@ -2170,6 +2170,42 @@ body {
     .fin-form .form-input { min-width: 0; flex: 1 1 45%; }
 }
 
+/* ============ PRODUCTOS: TOOLBAR / ORDEN / PAGINACIÓN ============ */
+
+.products-toolbar {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 0.9rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.products-toolbar .search-bar { flex: 1; min-width: 220px; }
+.products-toolbar select { width: auto; min-width: 170px; cursor: pointer; }
+
+/* Encabezados ordenables */
+.data-table.sortable th[data-sort] { cursor: pointer; user-select: none; white-space: nowrap; transition: var(--transition); }
+.data-table.sortable th[data-sort]:hover { color: var(--text); }
+.sort-ico { font-size: 0.85rem; opacity: 0.4; margin-left: 0.15rem; vertical-align: -1px; }
+.sort-ico.active { opacity: 1; color: var(--amber); }
+
+/* Paginación */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+.pag-info { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+.pag-btns { display: flex; gap: 0.4rem; }
+.pag-btns .btn { min-width: 40px; }
+.pag-btns .btn:disabled { opacity: 0.4; cursor: default; }
+
+@media (max-width: 640px) {
+    .products-toolbar select { flex: 1 1 100%; min-width: 0; }
+}
+
 /* ============ RESPONSIVE ============ */
 
 /* Pantallas bajas (notebooks 1366x768): compactar verticalmente */

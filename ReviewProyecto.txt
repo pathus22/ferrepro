@@ -51,24 +51,26 @@ FASE 1 — ENTORNO, BASE DE DATOS Y MÓDULO DE PRODUCTOS
       pueblan desde los productos existentes al arrancar (database.js)
   [x] Rename de categoría/proveedor propaga el cambio a los productos asociados
   [x] Endpoint para precios escalonados (product_prices) — POST /api/products/:id/prices
-  [ ] Historial de costos (previous_cost + last_cost_update ya en schema)
+  [x] GET /api/products/:id/detail (ficha) e historial de costos (tabla cost_history) — 2026-06-11
 
 [ MÓDULO DE PRODUCTOS — FRONTEND ]
-  [x] Tabla de productos con columnas: Código, Descripción, Marca,
-      Proveedor, Costo, Margen, Precio Venta
+  [x] Tabla de productos con columnas: Código, Descripción, Marca, Proveedor,
+      Stock, Costo, Margen, Precio Venta (columna de stock con color por estado)
   [x] Modal crear/editar producto (campos: código, descripción, costo,
       margen, categoría, marca, proveedor, unidades, otros, stock)
   [x] Botón eliminar con confirmación
   [x] Recarga automática de tabla tras cambios
-  [ ] Filtros y búsqueda en la tabla de productos (columna por columna)
-  [ ] Ordenamiento de columnas
-  [ ] Paginación (cuando el catálogo sea grande)
+  [x] Búsqueda + filtros por categoría y proveedor en la tabla — 2026-06-11
+  [x] Ordenamiento por columnas (código/desc/marca/prov/stock/costo/margen/precio) — 2026-06-11
+  [x] Paginación de la tabla (25 por página) — 2026-06-11
   [x] Autocompletado de categoría/marca/proveedor en el modal (datalists desde API) — 2026-06-10
   [x] Gestión de Categorías desde la UI (ABM completo) — vista "Categorías y Prov." 2026-06-10
   [x] Gestión de Proveedores desde la UI (ABM completo) — vista "Categorías y Prov." 2026-06-10
   [x] Configuración de precios escalonados por producto (en el modal)
   [x] Campo de stock mínimo en el alta/edición de producto — 2026-06-10
-  [ ] Vista del historial de costos por producto
+  [x] Ficha de producto con historial de costos y de movimientos de stock — 2026-06-11
+      (tabla cost_history que registra cada cambio: alta/edición/compra;
+      GET /api/products/:id/detail)
 
 [ MÓDULO DE IMPORTACIÓN — EXCEL ]
   [ ] Librería xlsx integrada en el backend
@@ -268,8 +270,8 @@ RESUMEN CUANTITATIVO
 --------------------------------------------------------------------------------
 
   FASE 1 — Entorno y Productos
-    Completados:  ~27 ítems (API cat./prov. + ABM UI completo + stock mínimo)
-    Pendientes:   ~21 ítems
+    Completados:  ~33 ítems (+ filtros/orden/paginación + ficha con historiales)
+    Pendientes:   ~15 ítems
 
   FASE 2 — Ventas y Facturación
     Completados:  ~19 ítems (POS, cobro, presupuesto/tique con tique automático)
@@ -287,8 +289,8 @@ RESUMEN CUANTITATIVO
     Completados:  ~17 ítems (+ start.bat con navegador/IP + doc de acceso por red)
     Pendientes:   ~2 ítems
 
-  TOTAL GENERAL: ~101 completados / ~33 pendientes
-  Avance estimado: ~75% del sistema completo
+  TOTAL GENERAL: ~107 completados / ~27 pendientes
+  Avance estimado: ~78% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
