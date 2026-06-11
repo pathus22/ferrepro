@@ -79,6 +79,9 @@ function initNavigation() {
                 loadCompany();
             }
 
+            // Al volver al POS, dejar el foco en el buscador (listo para escanear)
+            if (targetId === 'view-pos') setTimeout(focusPosSearch, 50);
+
             // En mobile, cerrar el drawer al navegar
             closeOverlays();
         });
@@ -144,15 +147,100 @@ async function initPOS() {
 
     currentProducts = await fetchProducts();
     renderPOSProducts(currentProducts);
+}
 
+// Filtra el catálogo del POS según el texto del buscador
+function filterPOS(term) {
+    const t = (term || '').toLowerCase();
+    const filtered = currentProducts.filter(p =>
+        p.name.toLowerCase().includes(t) || p.code.toLowerCase().includes(t)
+    );
+    renderPOSProducts(filtered);
+}
+
+// Busca un producto por su código EXACTO (para el lector de código de barras)
+function findProductByCode(code) {
+    const c = String(code || '').trim().toLowerCase();
+    if (!c) return null;
+    return currentProducts.find(p => (p.code || '').toLowerCase() === c) || null;
+}
+
+function focusPosSearch() {
+    const s = document.getElementById('pos-search');
+    if (s) s.focus();
+}
+
+function flashSearch(ok) {
+    const bar = document.querySelector('#view-pos .search-bar');
+    if (!bar) return;
+    const cls = ok ? 'scan-ok' : 'scan-fail';
+    bar.classList.add(cls);
+    setTimeout(() => bar.classList.remove(cls), 450);
+}
+
+// Procesa un código/búsqueda al presionar Enter (lector de barras o búsqueda manual)
+function handlePosScan(code) {
+    const input = document.getElementById('pos-search');
+    const term = String(code || '').trim();
+    if (!term) return;
+
+    // 1) Coincidencia exacta por código (caso típico del lector)
+    let prod = findProductByCode(term);
+    // 2) Si no hay código exacto pero la búsqueda deja un solo resultado, usarlo
+    if (!prod) {
+        const t = term.toLowerCase();
+        const matches = currentProducts.filter(p =>
+            p.name.toLowerCase().includes(t) || p.code.toLowerCase().includes(t));
+        if (matches.length === 1) prod = matches[0];
+    }
+
+    if (prod) {
+        addToCart(prod);
+        if (input) input.value = '';
+        renderPOSProducts(currentProducts);
+        flashSearch(true);
+        focusPosSearch();
+    } else {
+        flashSearch(false);
+        showToast(`Código no encontrado: ${term}`, 'error');
+        if (input) input.select();
+    }
+}
+
+// Configura el buscador + lector de código de barras (una sola vez)
+let scanBuffer = '';
+let scanLastTime = 0;
+function initPosSearch() {
     const searchInput = document.getElementById('pos-search');
-    searchInput.addEventListener('input', (e) => {
-        const term = e.target.value.toLowerCase();
-        const filtered = currentProducts.filter(p =>
-            p.name.toLowerCase().includes(term) ||
-            p.code.toLowerCase().includes(term)
-        );
-        renderPOSProducts(filtered);
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => filterPOS(e.target.value));
+    }
+
+    // Lector de código de barras: detecta una ráfaga de teclas terminada en Enter.
+    // Funciona aunque el foco no esté en el buscador (pero no si hay un modal o
+    // el foco está en otro campo de entrada distinto del buscador).
+    document.addEventListener('keydown', (e) => {
+        const posActive = !document.getElementById('view-pos').classList.contains('hidden');
+        const modalOpen = [...document.querySelectorAll('.modal-overlay, .todo-overlay')]
+            .some(m => !m.classList.contains('hidden'));
+        const ae = document.activeElement;
+        const inOtherField = ae && ['INPUT', 'SELECT', 'TEXTAREA'].includes(ae.tagName) && ae.id !== 'pos-search';
+
+        if (!posActive || modalOpen || inOtherField) { scanBuffer = ''; return; }
+
+        const now = Date.now();
+        if (now - scanLastTime > 100) scanBuffer = '';   // gap largo = nueva secuencia (tipeo humano)
+        scanLastTime = now;
+
+        if (e.key === 'Enter') {
+            // Si hubo una ráfaga rápida (lector), usar el buffer; si no, el texto del buscador
+            const code = scanBuffer.length >= 2 ? scanBuffer : (searchInput ? searchInput.value : '');
+            scanBuffer = '';
+            handlePosScan(code);
+            e.preventDefault();
+            return;
+        }
+        if (e.key.length === 1) scanBuffer += e.key;
     });
 }
 
@@ -565,6 +653,7 @@ async function confirmSale() {
         closeCheckout();
         await initPOS();   // refresca catálogo con el stock ya descontado
         renderCart();
+        focusPosSearch();  // listo para escanear la próxima venta
         const extra = selectedPayMethod === 'cuenta_corriente' ? ' · a cuenta corriente' : '';
         showToast(`Venta #${data.id} registrada · $${c.finalTotal.toFixed(2)}${extra}`);
     } catch (err) {
@@ -2790,6 +2879,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initCheckout();
     initStockModal();
+    initPosSearch();  // buscador + lector de código de barras
     fetchCompany();   // precargar datos de la empresa para presupuestos/tiques
     initPOS();
 

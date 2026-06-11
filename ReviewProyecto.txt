@@ -104,9 +104,11 @@ FASE 2 — VENTAS, FACTURACIÓN Y TICKET
   [x] Carrito: agregar producto, modificar cantidad, eliminar ítem
   [x] Cálculo de subtotal y total del carrito
   [x] Estado visual de carrito vacío
+  [x] Lector de código de barras — 2026-06-11: foco automático en el buscador,
+      detección de ráfaga de teclas + Enter, agrega por código exacto al carrito,
+      feedback visual (verde/rojo) y aviso si el código no existe
   [ ] Modificación temporal del precio de un ítem en el carrito (descuento puntual)
   [ ] Campo de nota/observación en el carrito o por ítem
-  [ ] Búsqueda por scanner de código de barras (foco automático en input)
   [ ] Precio con IVA desglosado en el carrito
   [ ] Indicador de stock disponible al agregar al carrito
   [ ] Advertencia si se intenta vender más unidades que el stock disponible
@@ -274,8 +276,8 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~15 ítems
 
   FASE 2 — Ventas y Facturación
-    Completados:  ~19 ítems (POS, cobro, presupuesto/tique con tique automático)
-    Pendientes:   ~9 ítems
+    Completados:  ~20 ítems (POS + cobro + documentos + lector de código de barras)
+    Pendientes:   ~8 ítems
 
   FASE 3 — Corredores, Stock y Pedidos
     Completados:  ~19 ítems (Stock + Pedidos + Corredores con cuenta corriente)
@@ -289,8 +291,8 @@ RESUMEN CUANTITATIVO
     Completados:  ~17 ítems (+ start.bat con navegador/IP + doc de acceso por red)
     Pendientes:   ~2 ítems
 
-  TOTAL GENERAL: ~107 completados / ~27 pendientes
-  Avance estimado: ~78% del sistema completo
+  TOTAL GENERAL: ~108 completados / ~26 pendientes
+  Avance estimado: ~79% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
