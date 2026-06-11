@@ -208,11 +208,13 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
   [ ] Conciliación básica con extracto bancario
 
 [ ESTADÍSTICAS Y DASHBOARD ]
-  [ ] Dashboard con KPIs principales (ventas del día, del mes, top productos)
-  [ ] Gráfico de ventas por período (diario, semanal, mensual)
-  [ ] Ganancia por producto / categoría
-  [ ] Productos más vendidos (ranking)
-  [ ] Comparativa de períodos (este mes vs. mes anterior)
+  [x] Dashboard con KPIs (ventas de hoy, del mes, ganancia estimada, alertas) — 2026-06-11
+      vista de inicio del admin; GET /api/dashboard calcula todo server-side
+  [x] Gráfico de ventas por período: barras de los últimos 14 días (CSS, sin libs)
+  [x] Productos más vendidos del mes (ranking por cantidad + ingreso)
+  [x] Comparativa de períodos (este mes vs. mes anterior, % de variación)
+  [x] Desglose por medio de pago del mes + ganancia estimada del mes
+  [~] Ganancia por categoría: hay ganancia total del mes; falta desglose por categoría
   [ ] Exportación de reportes a PDF / Excel
 
 --------------------------------------------------------------------------------
@@ -268,15 +270,15 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~3 ítems (sub-obras por corredor, export Excel, pedidos a Excel)
 
   FASE 4 — Finanzas y Administración
-    Completados:  ~4 ítems (Caja e Historial: resumen diario + desglose por medio)
-    Pendientes:   ~14 ítems
+    Completados:  ~9 ítems (Caja e Historial + Dashboard con KPIs y gráficos)
+    Pendientes:   ~9 ítems
 
   Transversales
     Completados:  ~10 ítems (incluye datos de empresa configurables)
     Pendientes:   ~8 ítems
 
-  TOTAL GENERAL: ~80 completados / ~54 pendientes
-  Avance estimado: ~60% del sistema completo
+  TOTAL GENERAL: ~85 completados / ~49 pendientes
+  Avance estimado: ~63% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
@@ -308,11 +310,15 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
      con encabezado de la empresa (logo, CUIT, condición IVA, dirección, etc.),
      configurables en la vista Configuración (tabla company_info).
 
-  8. Completar Finanzas (apertura/cierre de caja, gastos, cuentas a pagar) y
-     Dashboard con estadísticas (ya hay datos de ventas reales en la DB)
+  8. [HECHO 2026-06-11] Dashboard con estadísticas: KPIs (hoy, mes, ganancia,
+     alertas), gráfico de barras de 14 días, top productos, desglose por medio
+     de pago, comparativa mes vs mes anterior. Es la pantalla de inicio del admin.
 
-  9. Pendientes varios: importación de Excel (pedir Excel de ejemplo), backup
-     automático de la DB, generar el tique automáticamente tras cobrar con su N°,
-     integración fiscal (a definir), contraseña admin configurable.
+  9. Completar Finanzas: apertura/cierre de caja (arqueo), egresos/gastos,
+     cuentas a pagar a proveedores, cartera de cheques.
+
+  10. Pendientes varios: importación de Excel (pedir Excel de ejemplo), backup
+      automático de la DB, tique automático tras cobrar con su N°, integración
+      fiscal (a definir), contraseña admin configurable.
 
 ================================================================================

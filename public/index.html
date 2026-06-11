@@ -56,6 +56,9 @@
 
                 <div id="admin-nav-section" style="display: none;">
                     <p class="nav-title">Administración</p>
+                    <button class="nav-item" data-target="view-dashboard">
+                        <i class="ph ph-chart-pie-slice"></i> <span>Dashboard</span>
+                    </button>
                     <button class="nav-item" data-target="view-products">
                         <i class="ph ph-package"></i> <span>Productos y Precios</span>
                     </button>
@@ -118,6 +121,35 @@
             </header>
 
             <!-- VIEWS -->
+
+            <!-- View: Dashboard -->
+            <section id="view-dashboard" class="view hidden">
+                <header class="view-header">
+                    <h1>Dashboard</h1>
+                    <p class="view-desc">Resumen de la actividad del negocio</p>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="loadDashboard()"><i class="ph ph-arrow-clockwise"></i> Actualizar</button>
+                    </div>
+                </header>
+
+                <div class="stats-grid" id="dash-kpis"></div>
+
+                <div class="panel dash-chart-panel">
+                    <h2 class="section-title"><i class="ph ph-chart-bar"></i> Ventas de los últimos 14 días</h2>
+                    <div class="bar-chart" id="dash-chart"></div>
+                </div>
+
+                <div class="dash-cols">
+                    <div class="panel">
+                        <h2 class="section-title"><i class="ph ph-ranking"></i> Top productos del mes</h2>
+                        <div id="dash-top"></div>
+                    </div>
+                    <div class="panel">
+                        <h2 class="section-title"><i class="ph ph-chart-donut"></i> Medios de pago (mes)</h2>
+                        <div id="dash-methods"></div>
+                    </div>
+                </div>
+            </section>
 
             <!-- View: POS (Mostrador) -->
             <section id="view-pos" class="view">

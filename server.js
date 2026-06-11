@@ -579,6 +579,85 @@ app.post('/api/corridors/:id/payments', (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ===== DASHBOARD / ESTADÍSTICAS =====
+
+app.get('/api/dashboard', (req, res) => {
+    try {
+        const num = v => (v || 0);
+        const todayStr = db.prepare("SELECT date('now','localtime') d").get().d;
+        const curMonth = db.prepare("SELECT strftime('%Y-%m','now','localtime') m").get().m;
+        const prevMonth = db.prepare("SELECT strftime('%Y-%m', date('now','localtime','start of month','-1 month')) m").get().m;
+
+        // KPIs
+        const today = db.prepare("SELECT COALESCE(SUM(total),0) t, COUNT(*) c FROM sales WHERE date(sale_date) = ?").get(todayStr);
+        const month = db.prepare("SELECT COALESCE(SUM(total),0) t, COUNT(*) c FROM sales WHERE strftime('%Y-%m', sale_date) = ?").get(curMonth);
+        const prev = db.prepare("SELECT COALESCE(SUM(total),0) t FROM sales WHERE strftime('%Y-%m', sale_date) = ?").get(prevMonth);
+
+        // Ganancia estimada del mes (precio de venta - costo actual del producto)
+        const profit = db.prepare(`
+            SELECT COALESCE(SUM((si.unit_price - p.cost) * si.quantity), 0) g
+            FROM sale_items si
+            JOIN sales s ON s.id = si.sale_id
+            LEFT JOIN products p ON p.id = si.product_id
+            WHERE strftime('%Y-%m', s.sale_date) = ?
+        `).get(curMonth).g;
+
+        // Ventas por día (últimos 14 días), rellenando los días sin ventas
+        const rows = db.prepare(`
+            SELECT date(sale_date) d, COALESCE(SUM(total),0) t, COUNT(*) c
+            FROM sales WHERE date(sale_date) >= date('now','localtime','-13 days')
+            GROUP BY date(sale_date)
+        `).all();
+        const byDay = {};
+        rows.forEach(r => { byDay[r.d] = { total: r.t, count: r.c }; });
+        const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const base = new Date(todayStr + 'T12:00:00');
+        const daily = [];
+        for (let i = 13; i >= 0; i--) {
+            const dt = new Date(base);
+            dt.setDate(dt.getDate() - i);
+            const key = fmt(dt);
+            daily.push({ date: key, total: byDay[key] ? byDay[key].total : 0, count: byDay[key] ? byDay[key].count : 0 });
+        }
+
+        // Top productos del mes (por cantidad)
+        const topProducts = db.prepare(`
+            SELECT p.code, p.name, SUM(si.quantity) qty, SUM(si.quantity * si.unit_price) revenue
+            FROM sale_items si
+            JOIN sales s ON s.id = si.sale_id
+            LEFT JOIN products p ON p.id = si.product_id
+            WHERE strftime('%Y-%m', s.sale_date) = ?
+            GROUP BY si.product_id
+            ORDER BY qty DESC LIMIT 8
+        `).all(curMonth);
+
+        // Desglose por medio de pago (mes)
+        const byMethod = db.prepare(`
+            SELECT payment_method method, COUNT(*) count, COALESCE(SUM(total),0) total
+            FROM sales WHERE strftime('%Y-%m', sale_date) = ?
+            GROUP BY payment_method ORDER BY total DESC
+        `).all(curMonth);
+
+        // Extras de otros módulos
+        const lowStock = db.prepare("SELECT COUNT(*) c FROM products WHERE stock <= 0 OR (min_stock > 0 AND stock <= min_stock)").get().c;
+        const charges = db.prepare("SELECT COALESCE(SUM(total),0) t FROM sales WHERE payment_method='cuenta_corriente'").get().t;
+        const payments = db.prepare("SELECT COALESCE(SUM(amount),0) t FROM corridor_payments").get().t;
+
+        const monthChange = prev.t > 0 ? ((month.t - prev.t) / prev.t) * 100 : null;
+
+        res.json({
+            today: { total: num(today.t), count: num(today.c) },
+            month: { total: num(month.t), count: num(month.c), avg: month.c ? month.t / month.c : 0, profit: num(profit) },
+            prevMonthTotal: num(prev.t),
+            monthChange,
+            daily,
+            topProducts,
+            byMethod,
+            extras: { lowStock: num(lowStock), corridorDebt: num(charges - payments) }
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ===== DATOS DE LA EMPRESA (CONFIGURACIÓN) =====
 
 // Obtener los datos de la ferretería

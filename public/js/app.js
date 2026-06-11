@@ -61,7 +61,9 @@ function initNavigation() {
             const targetId = item.getAttribute('data-target');
             document.getElementById(targetId).classList.remove('hidden');
 
-            if (targetId === 'view-products') {
+            if (targetId === 'view-dashboard') {
+                loadDashboard();
+            } else if (targetId === 'view-products') {
                 loadProductsAdmin();
             } else if (targetId === 'view-finances') {
                 initCajaView();
@@ -685,6 +687,10 @@ function enterAsAdmin() {
         document.querySelector('.user-info .role').textContent = 'Admin';
         document.querySelector('.avatar').textContent = 'A';
         passInput.value = ''; // clear password
+
+        // Mostrar el dashboard como pantalla de inicio del admin
+        const dashNav = document.querySelector('[data-target="view-dashboard"]');
+        if (dashNav) dashNav.click();
 
     } else {
         errorMsg.style.display = 'block';
@@ -2069,6 +2075,120 @@ async function printPosDocument(type) {
     win.document.close();
     win.focus();
     setTimeout(() => win.print(), 350);
+}
+
+// ===== Dashboard / Estadísticas =====
+async function loadDashboard() {
+    try {
+        const d = await fetch('/api/dashboard').then(r => r.json());
+        renderDashKpis(d);
+        renderDashChart(d.daily);
+        renderDashTop(d.topProducts);
+        renderDashMethods(d.byMethod);
+    } catch (e) {
+        document.getElementById('dash-kpis').innerHTML = '<p class="abm-empty" style="color:var(--red);">Error al cargar el dashboard</p>';
+    }
+}
+
+function renderDashKpis(d) {
+    const fmt = n => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    let changeHtml = '';
+    if (d.monthChange !== null && d.monthChange !== undefined) {
+        const up = d.monthChange >= 0;
+        changeHtml = `<span class="stat-sub" style="color:${up ? 'var(--green)' : 'var(--red)'};">
+            <i class="ph ${up ? 'ph-trend-up' : 'ph-trend-down'}"></i> ${up ? '+' : ''}${d.monthChange.toFixed(1)}% vs mes anterior</span>`;
+    } else {
+        changeHtml = '<span class="stat-sub">sin datos del mes anterior</span>';
+    }
+
+    document.getElementById('dash-kpis').innerHTML = `
+        <div class="stat-card stat-accent">
+            <span class="stat-label"><i class="ph ph-cash-register"></i> Ventas de hoy</span>
+            <span class="stat-value">${fmt(d.today.total)}</span>
+            <span class="stat-sub">${d.today.count} ${d.today.count === 1 ? 'venta' : 'ventas'}</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label"><i class="ph ph-calendar"></i> Ventas del mes</span>
+            <span class="stat-value">${fmt(d.month.total)}</span>
+            ${changeHtml}
+        </div>
+        <div class="stat-card">
+            <span class="stat-label"><i class="ph ph-chart-line-up"></i> Ganancia estimada (mes)</span>
+            <span class="stat-value">${fmt(d.month.profit)}</span>
+            <span class="stat-sub">${d.month.count} ventas · ticket prom. ${fmt(d.month.avg)}</span>
+        </div>
+        <div class="stat-card ${d.extras.lowStock ? 'stat-warn' : ''}">
+            <span class="stat-label"><i class="ph ph-warning"></i> Alertas</span>
+            <span class="stat-value">${d.extras.lowStock}</span>
+            <span class="stat-sub">prod. a reponer${d.extras.corridorDebt > 0 ? ' · ' + fmt(d.extras.corridorDebt) + ' por cobrar' : ''}</span>
+        </div>
+    `;
+}
+
+function renderDashChart(daily) {
+    const el = document.getElementById('dash-chart');
+    const max = Math.max(...daily.map(d => d.total), 1);
+    const fmt = n => `$${(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+    const dayLabel = ds => {
+        const parts = ds.split('-');
+        return `${parts[2]}/${parts[1]}`;
+    };
+    el.innerHTML = daily.map(d => {
+        const h = Math.round((d.total / max) * 100);
+        return `
+            <div class="bar-col" title="${dayLabel(d.date)} · ${fmt(d.total)} (${d.count} v.)">
+                <div class="bar-value">${d.total > 0 ? fmt(d.total) : ''}</div>
+                <div class="bar" style="height:${d.total > 0 ? Math.max(h, 2) : 0}%"></div>
+                <div class="bar-label">${dayLabel(d.date)}</div>
+            </div>`;
+    }).join('');
+}
+
+function renderDashTop(top) {
+    const el = document.getElementById('dash-top');
+    if (!top || top.length === 0) {
+        el.innerHTML = '<p class="abm-empty">Sin ventas este mes todavía.</p>';
+        return;
+    }
+    const fmt = n => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const maxQty = Math.max(...top.map(t => t.qty), 1);
+    el.innerHTML = top.map((t, i) => `
+        <div class="top-row">
+            <span class="top-rank">${i + 1}</span>
+            <div class="top-info">
+                <div class="top-name">${escapeHtml(t.name || t.code || '—')}</div>
+                <div class="top-bar-track"><div class="top-bar" style="width:${Math.round((t.qty / maxQty) * 100)}%"></div></div>
+            </div>
+            <div class="top-stats">
+                <span class="top-qty">${t.qty} u.</span>
+                <span class="top-rev">${fmt(t.revenue)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderDashMethods(methods) {
+    const el = document.getElementById('dash-methods');
+    if (!methods || methods.length === 0) {
+        el.innerHTML = '<p class="abm-empty">Sin ventas este mes todavía.</p>';
+        return;
+    }
+    const fmt = n => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const total = methods.reduce((s, m) => s + m.total, 0) || 1;
+    el.innerHTML = methods.map(m => {
+        const pct = Math.round((m.total / total) * 100);
+        const label = PAY_LABELS[m.method] || m.method || '—';
+        const icon = PAY_ICONS[m.method] || 'ph-money';
+        return `
+            <div class="method-bar-row">
+                <div class="method-bar-head">
+                    <span><i class="ph ${icon}"></i> ${label}</span>
+                    <span class="mono">${fmt(m.total)} <span style="color:var(--muted);">(${pct}%)</span></span>
+                </div>
+                <div class="method-bar-track"><div class="method-bar-fill" style="width:${pct}%"></div></div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Boot

@@ -16,8 +16,9 @@
     cuenta con saldo corrido, cobranzas, lista de precios imprimible). Falta:
     sub-lista de obras/proyectos por corredor y exportar a Excel.
 - Construir el Módulo de Finanzas y Cajas
-    [PARCIAL 2026-06-10] Caja e Historial listo (resumen diario, desglose por medio
-    de pago, historial con detalle, filtro por fecha). Falta: apertura/cierre de caja
-    con arqueo, egresos/gastos, cuentas a pagar, cheques.
+    [PARCIAL 2026-06-11] Caja e Historial + Dashboard con estadísticas (KPIs, gráfico
+    de ventas 14 días, top productos, medios de pago, comparativa mensual, ganancia
+    estimada) listos. Falta: apertura/cierre de caja con arqueo, egresos/gastos,
+    cuentas a pagar, cheques.
 - [HECHO 2026-06-10] Pantalla ABM dedicada de categorías y proveedores (vista
     "Categorías y Prov." con alta/edición/borrado; rename propaga a productos)

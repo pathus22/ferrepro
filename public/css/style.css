@@ -1911,6 +1911,114 @@ body {
     .logo-preview { max-height: 180px; aspect-ratio: 16 / 9; }
 }
 
+/* ============ DASHBOARD ============ */
+
+.dash-chart-panel { border-radius: var(--radius); padding: 1rem 1.1rem 0.6rem; margin-bottom: 0.9rem; }
+
+.bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.4rem;
+    height: 190px;
+    padding-top: 1.2rem;
+}
+
+.bar-col {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.bar-value {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    white-space: nowrap;
+    height: 0.9rem;
+}
+
+.bar {
+    width: 100%;
+    max-width: 38px;
+    background: linear-gradient(180deg, var(--amber), #d98a1e);
+    border-radius: 4px 4px 0 0;
+    min-height: 0;
+    transition: height 0.4s ease;
+}
+.bar-col:hover .bar { background: linear-gradient(180deg, var(--amber-hover), var(--amber)); }
+
+.bar-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.dash-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.9rem;
+    align-items: start;
+}
+.dash-cols .panel { border-radius: var(--radius); padding: 1rem 1.1rem; }
+
+/* Top productos */
+.top-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.top-row:last-child { border-bottom: none; }
+
+.top-rank {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--panel-3);
+    color: var(--amber);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.top-info { flex: 1; min-width: 0; }
+.top-name { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-bar-track { height: 5px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.top-bar { height: 100%; background: var(--green); border-radius: 3px; }
+.top-stats { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.top-qty { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; }
+.top-rev { font-family: var(--font-mono); font-size: 0.72rem; color: var(--green); }
+
+/* Medios de pago (barras) */
+.method-bar-row { margin-bottom: 0.8rem; }
+.method-bar-row:last-child { margin-bottom: 0; }
+.method-bar-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+}
+.method-bar-head i { color: var(--amber); margin-right: 0.2rem; }
+.method-bar-track { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.method-bar-fill { height: 100%; background: linear-gradient(90deg, var(--amber), #d98a1e); border-radius: 4px; }
+
+@media (max-width: 860px) {
+    .dash-cols { grid-template-columns: 1fr; }
+    .bar-value { display: none; }
+    .bar-chart { gap: 0.25rem; }
+}
+
 /* ============ RESPONSIVE ============ */
 
 /* Pantallas bajas (notebooks 1366x768): compactar verticalmente */
