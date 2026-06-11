@@ -124,6 +124,19 @@ function initDB() {
             logo TEXT,
             footer_note TEXT
         );
+
+        -- Sesiones de caja diarias (apertura / cierre con arqueo)
+        CREATE TABLE IF NOT EXISTS cash_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opened_at DATETIME DEFAULT (datetime('now','localtime')),
+            opening_amount REAL NOT NULL DEFAULT 0,
+            closed_at DATETIME,
+            counted_amount REAL,
+            expected_amount REAL,
+            difference REAL,
+            status TEXT NOT NULL DEFAULT 'open',   -- open / closed
+            notes TEXT
+        );
     `);
 
     // Asegurar que exista la fila de configuración
@@ -141,6 +154,7 @@ try { db.exec(`ALTER TABLE products ADD COLUMN sale_unit TEXT DEFAULT 'unidades'
 try { db.exec(`ALTER TABLE corridors ADD COLUMN discount_percentage REAL DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE corridors ADD COLUMN phone TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE corridors ADD COLUMN notes TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE company_info ADD COLUMN auto_ticket INTEGER DEFAULT 0`); } catch(e) {}
 
 // Sincronizar categorías y proveedores a partir de los productos ya cargados
 // (inserta solo los que falten; corre en cada arranque sin duplicar)

@@ -117,8 +117,8 @@ FASE 2 — VENTAS, FACTURACIÓN Y TICKET
   [x] Descuento automático de stock al confirmar venta
   [x] Endpoint GET /api/sales (historial, opcional ?date=YYYY-MM-DD)
   [x] Asociar venta a un corredor (cuenta corriente desde el POS) — 2026-06-10
-  [~] Comprobante tras cobrar: presupuesto/tique imprimible desde el carrito (2026-06-11);
-      falta generar el tique automáticamente con el N° de venta tras cobrar
+  [x] Comprobante tras cobrar: tique automático con el N° de venta al confirmar
+      (opción configurable en Configuración) — 2026-06-11
 
 [ FACTURACIÓN / TICKETS ]
   [x] "Imprimir como presupuesto" — documento A4 imprimible/PDF desde el carrito (2026-06-11)
@@ -201,7 +201,9 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
   [x] Registro de ingresos por medio de pago (desglose efectivo/débito/crédito/
       transferencia/cheque, con conteo y monto por medio)
   [x] Historial de ventas con detalle de ítems expandible + filtro por fecha
-  [ ] Apertura y cierre de caja diario (saldo inicial / arqueo)
+  [x] Apertura y cierre de caja diario con arqueo — 2026-06-11
+      (fondo inicial, efectivo esperado = fondo + ventas efectivo, conteo y
+      diferencia; tabla cash_sessions; endpoints /api/cash/open|close|current|history)
   [ ] Registro de egresos (gastos, pagos a proveedores)
   [ ] Cartera de cheques recibidos con vencimientos
   [ ] Vencimientos de servicios / obligaciones (alerta configurable)
@@ -243,8 +245,10 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
   [x] Datos de la empresa configurables (nombre, CUIT, condición IVA, dirección,
       teléfono, email, logo, nota al pie) — vista Configuración, usados en
       presupuestos/tiques. Cada instalación = una ferretería adherida. (2026-06-11)
-  [ ] Backup automático de la base de datos SQLite (diario o por evento)
-  [ ] Recuperación ante errores de la DB
+  [x] Backup automático de la base de datos SQLite — 2026-06-11
+      (al iniciar y cada 6 hs en backups/, conserva 30 copias, rotación automática;
+      backup manual desde Configuración con listado de copias; db.backup() online)
+  [ ] Recuperación ante errores de la DB (restaurar desde un backup vía UI)
 
 [ DESPLIEGUE ]
   [x] start.bat inicia el servidor node
@@ -262,23 +266,23 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~21 ítems
 
   FASE 2 — Ventas y Facturación
-    Completados:  ~18 ítems (POS, cobro, presupuesto/tique imprimible con datos empresa)
-    Pendientes:   ~10 ítems
+    Completados:  ~19 ítems (POS, cobro, presupuesto/tique con tique automático)
+    Pendientes:   ~9 ítems
 
   FASE 3 — Corredores, Stock y Pedidos
     Completados:  ~19 ítems (Stock + Pedidos + Corredores con cuenta corriente)
     Pendientes:   ~3 ítems (sub-obras por corredor, export Excel, pedidos a Excel)
 
   FASE 4 — Finanzas y Administración
-    Completados:  ~9 ítems (Caja e Historial + Dashboard con KPIs y gráficos)
-    Pendientes:   ~9 ítems
-
-  Transversales
-    Completados:  ~10 ítems (incluye datos de empresa configurables)
+    Completados:  ~10 ítems (Caja e Historial + Dashboard + apertura/cierre con arqueo)
     Pendientes:   ~8 ítems
 
-  TOTAL GENERAL: ~85 completados / ~49 pendientes
-  Avance estimado: ~63% del sistema completo
+  Transversales
+    Completados:  ~11 ítems (datos de empresa + backup automático de la DB)
+    Pendientes:   ~7 ítems
+
+  TOTAL GENERAL: ~88 completados / ~46 pendientes
+  Avance estimado: ~66% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
@@ -314,11 +318,14 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
      alertas), gráfico de barras de 14 días, top productos, desglose por medio
      de pago, comparativa mes vs mes anterior. Es la pantalla de inicio del admin.
 
-  9. Completar Finanzas: apertura/cierre de caja (arqueo), egresos/gastos,
-     cuentas a pagar a proveedores, cartera de cheques.
+  9. [HECHO 2026-06-11] Apertura/cierre de caja con arqueo + backup automático de
+     la DB + tique automático tras cobrar con su N°.
 
-  10. Pendientes varios: importación de Excel (pedir Excel de ejemplo), backup
-      automático de la DB, tique automático tras cobrar con su N°, integración
-      fiscal (a definir), contraseña admin configurable.
+  10. Completar Finanzas: registro de egresos/gastos, cuentas a pagar a
+      proveedores, cartera de cheques.
+
+  11. Pendientes varios: importación de Excel (pedir Excel de ejemplo), restaurar
+      DB desde backup vía UI, integración fiscal (a definir), contraseña admin
+      configurable, módulo de gastos/compras.
 
 ================================================================================

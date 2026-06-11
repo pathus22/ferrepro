@@ -4,5 +4,6 @@ ferreteria.sqlite
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+backups/
 Tareas.txt
 .claude/settings.local.json

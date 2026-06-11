@@ -423,6 +423,9 @@
                     </div>
                 </header>
 
+                <!-- Estado de la caja (apertura / cierre) -->
+                <div class="panel cash-panel" id="cash-panel"></div>
+
                 <!-- Tarjetas de resumen -->
                 <div class="stats-grid" id="caja-stats"></div>
 
@@ -507,6 +510,12 @@
                                     <label for="company-footer">Nota al pie <span class="opt">(aparece en los documentos)</span></label>
                                     <input type="text" id="company-footer" class="form-input" placeholder="Ej: Presupuesto válido por 7 días. ¡Gracias por su compra!">
                                 </div>
+                                <div class="form-field full">
+                                    <label class="fiscal-toggle" style="margin:0;">
+                                        <input type="checkbox" id="company-auto-ticket">
+                                        <span>Imprimir el tique automáticamente al cobrar</span>
+                                    </label>
+                                </div>
                             </div>
                             <div class="settings-save-row">
                                 <button type="submit" class="btn btn-primary"><i class="ph ph-floppy-disk"></i> Guardar datos</button>
@@ -514,6 +523,17 @@
                         </div>
                     </div>
                 </form>
+
+                <!-- Backups -->
+                <div class="panel settings-backup-panel">
+                    <h2 class="settings-section-title"><i class="ph ph-database"></i> Copias de seguridad</h2>
+                    <p class="settings-hint" style="margin-top:0;">La base se respalda automáticamente al iniciar y cada 6 horas en la carpeta <code>backups/</code>. Se conservan las últimas 30 copias.</p>
+                    <div class="backup-bar">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="createBackup()"><i class="ph ph-download-simple"></i> Crear backup ahora</button>
+                        <span class="settings-hint" id="backup-last"></span>
+                    </div>
+                    <div class="backup-list" id="backup-list"></div>
+                </div>
             </section>
 
         </main>
@@ -806,6 +826,42 @@
                 <button type="button" class="btn btn-secondary" onclick="closeReceiveModal()">Cancelar</button>
                 <button type="button" class="btn btn-secondary" onclick="fillReceiveAll()"><i class="ph ph-check-square"></i> Recibir todo</button>
                 <button type="button" class="btn btn-primary" id="receive-confirm-btn" onclick="confirmReceive()"><i class="ph ph-check-fat"></i> Confirmar recepción</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CASH CLOSE (ARQUEO) MODAL -->
+    <div id="cash-close-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeCashModal()"><i class="ph ph-x"></i></button>
+            <h2><i class="ph ph-lock-key-open" style="color: var(--amber); vertical-align: -2px;"></i> Cerrar Caja (Arqueo)</h2>
+
+            <div class="arqueo-box">
+                <div class="arqueo-row"><span>Fondo inicial</span><span class="mono" id="arqueo-opening">$0.00</span></div>
+                <div class="arqueo-row"><span>Ventas en efectivo</span><span class="mono" id="arqueo-cash">$0.00</span></div>
+                <div class="arqueo-row total"><span>Efectivo esperado</span><span class="mono" id="arqueo-expected">$0.00</span></div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="cash-counted">Efectivo contado</label>
+                    <input type="number" id="cash-counted" class="form-input" min="0" step="0.01" placeholder="0.00" oninput="updateArqueoDiff()">
+                </div>
+                <div class="form-field">
+                    <label>Diferencia</label>
+                    <div class="stock-result mono" id="arqueo-diff">—</div>
+                </div>
+                <div class="form-field full">
+                    <label for="cash-notes">Observaciones <span class="opt">(opcional)</span></label>
+                    <input type="text" id="cash-notes" class="form-input">
+                </div>
+            </div>
+
+            <p class="form-error" id="cash-error" style="display: none;"></p>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeCashModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="cash-close-btn" onclick="confirmCloseCash()"><i class="ph ph-check-fat"></i> Cerrar caja</button>
             </div>
         </div>
     </div>

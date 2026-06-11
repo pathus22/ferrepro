@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const db = require('./src/database');
 
 const app = express();
@@ -9,6 +10,40 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '6mb' })); // 6mb para permitir el logo en base64
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ===== BACKUP AUTOMÁTICO DE LA BASE DE DATOS =====
+const BACKUP_DIR = path.join(__dirname, 'backups');
+const BACKUP_KEEP = 30;            // cuántos backups conservar
+const BACKUP_EVERY_MS = 6 * 60 * 60 * 1000; // cada 6 horas
+
+function stamp() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+async function backupDatabase() {
+    try {
+        if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        const dest = path.join(BACKUP_DIR, `ferreteria-${stamp()}.sqlite`);
+        await db.backup(dest); // backup online seguro de better-sqlite3
+        // Rotación: conservar solo los últimos BACKUP_KEEP
+        const files = fs.readdirSync(BACKUP_DIR)
+            .filter(f => f.startsWith('ferreteria-') && f.endsWith('.sqlite'))
+            .sort();
+        while (files.length > BACKUP_KEEP) {
+            fs.unlinkSync(path.join(BACKUP_DIR, files.shift()));
+        }
+        return dest;
+    } catch (err) {
+        console.error('Backup falló:', err.message);
+        throw err;
+    }
+}
+
+// Backup al arrancar (a los 5s) y cada 6 horas
+setTimeout(() => backupDatabase().then(d => console.log('Backup inicial:', path.basename(d))).catch(() => {}), 5000);
+setInterval(() => backupDatabase().catch(() => {}), BACKUP_EVERY_MS);
 
 // Registra un nombre en categories/providers si todavía no existe (auto-sync al guardar productos)
 function ensureNamed(table, name) {
@@ -671,17 +706,97 @@ app.get('/api/company', (req, res) => {
 // Guardar/actualizar los datos de la ferretería (fila única id=1)
 app.put('/api/company', (req, res) => {
     try {
-        const { name, cuit, iva_condition, address, phone, email, logo, footer_note } = req.body;
+        const { name, cuit, iva_condition, address, phone, email, logo, footer_note, auto_ticket } = req.body;
         db.prepare(`
             UPDATE company_info SET
                 name = ?, cuit = ?, iva_condition = ?, address = ?,
-                phone = ?, email = ?, logo = ?, footer_note = ?
+                phone = ?, email = ?, logo = ?, footer_note = ?, auto_ticket = ?
             WHERE id = 1
         `).run(
             (name || '').trim(), (cuit || '').trim(), (iva_condition || '').trim(), (address || '').trim(),
-            (phone || '').trim(), (email || '').trim(), logo || '', (footer_note || '').trim()
+            (phone || '').trim(), (email || '').trim(), logo || '', (footer_note || '').trim(), auto_ticket ? 1 : 0
         );
         res.json({ message: 'Datos guardados' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== CAJA: APERTURA / CIERRE (ARQUEO) =====
+
+// Efectivo esperado en una sesión = fondo inicial + ventas en efectivo desde la apertura
+function expectedCash(session) {
+    const cash = db.prepare(
+        "SELECT COALESCE(SUM(total),0) t, COUNT(*) c FROM sales WHERE payment_method = 'efectivo' AND sale_date >= ?"
+    ).get(session.opened_at);
+    return { cashSales: cash.t, cashCount: cash.c, expected: session.opening_amount + cash.t };
+}
+
+// Estado de la caja: sesión abierta (si hay) con el efectivo esperado calculado
+app.get('/api/cash/current', (req, res) => {
+    try {
+        const s = db.prepare("SELECT * FROM cash_sessions WHERE status = 'open' ORDER BY id DESC LIMIT 1").get();
+        if (!s) return res.json({ open: false });
+        const calc = expectedCash(s);
+        res.json({ open: true, session: s, ...calc });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Abrir caja
+app.post('/api/cash/open', (req, res) => {
+    try {
+        const existing = db.prepare("SELECT 1 FROM cash_sessions WHERE status = 'open' LIMIT 1").get();
+        if (existing) return res.status(400).json({ error: 'Ya hay una caja abierta' });
+        const opening = parseFloat(req.body.opening_amount) || 0;
+        if (opening < 0) return res.status(400).json({ error: 'El fondo inicial no puede ser negativo' });
+        const r = db.prepare("INSERT INTO cash_sessions (opening_amount, status) VALUES (?, 'open')").run(opening);
+        res.json({ id: r.lastInsertRowid, message: 'Caja abierta' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Cerrar caja (arqueo): registra el efectivo contado y la diferencia
+app.post('/api/cash/close', (req, res) => {
+    try {
+        const s = db.prepare("SELECT * FROM cash_sessions WHERE status = 'open' ORDER BY id DESC LIMIT 1").get();
+        if (!s) return res.status(400).json({ error: 'No hay una caja abierta' });
+        const counted = parseFloat(req.body.counted_amount);
+        if (!Number.isFinite(counted) || counted < 0) return res.status(400).json({ error: 'Importe contado inválido' });
+        const { expected } = expectedCash(s);
+        const difference = counted - expected;
+        db.prepare(`
+            UPDATE cash_sessions SET status='closed', closed_at=datetime('now','localtime'),
+                counted_amount=?, expected_amount=?, difference=?, notes=? WHERE id=?
+        `).run(counted, expected, difference, (req.body.notes || '').trim(), s.id);
+        res.json({ message: 'Caja cerrada', expected, counted, difference });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Historial de cierres de caja
+app.get('/api/cash/history', (req, res) => {
+    try {
+        res.json(db.prepare("SELECT * FROM cash_sessions WHERE status='closed' ORDER BY id DESC LIMIT 60").all());
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== BACKUP MANUAL =====
+app.post('/api/backup', async (req, res) => {
+    try {
+        const dest = await backupDatabase();
+        res.json({ message: 'Backup creado', file: path.basename(dest) });
+    } catch (err) {
+        res.status(500).json({ error: 'No se pudo crear el backup: ' + err.message });
+    }
+});
+
+app.get('/api/backups', (req, res) => {
+    try {
+        if (!fs.existsSync(BACKUP_DIR)) return res.json([]);
+        const files = fs.readdirSync(BACKUP_DIR)
+            .filter(f => f.startsWith('ferreteria-') && f.endsWith('.sqlite'))
+            .map(f => {
+                const st = fs.statSync(path.join(BACKUP_DIR, f));
+                return { file: f, size: st.size, mtime: st.mtime };
+            })
+            .sort((a, b) => b.mtime - a.mtime);
+        res.json(files);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

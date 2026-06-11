@@ -548,6 +548,12 @@ async function confirmSale() {
         }
         const data = await res.json();
 
+        // Tique automático: capturar el detalle ANTES de vaciar el carrito
+        if (companyInfo && companyInfo.auto_ticket) {
+            const snapshot = { comp: c, lines: cartToDocLines(c), saleNumber: data.id };
+            printPosDocument('ticket', snapshot);
+        }
+
         // Vaciar carrito y resetear descuento
         currentCart = [];
         const discountCheck = document.getElementById('cart-discount-check');
@@ -923,7 +929,127 @@ function setCajaToday() {
 function initCajaView() {
     const input = document.getElementById('caja-date');
     if (!input.value) input.value = todayStr();
+    loadCashSession();
     loadCaja();
+}
+
+// ===== Caja: apertura / cierre (arqueo) =====
+const cashFmt = n => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+let cashState = null;
+
+async function loadCashSession() {
+    const panel = document.getElementById('cash-panel');
+    try {
+        cashState = await fetch('/api/cash/current').then(r => r.json());
+        renderCashPanel();
+    } catch (e) {
+        panel.innerHTML = '<p class="abm-empty" style="color:var(--red);">Error al cargar la caja</p>';
+    }
+}
+
+function renderCashPanel() {
+    const panel = document.getElementById('cash-panel');
+    if (!cashState || !cashState.open) {
+        panel.innerHTML = `
+            <div class="cash-closed">
+                <div class="cash-status"><i class="ph ph-lock-key"></i> <span>Caja cerrada</span></div>
+                <div class="cash-open-form">
+                    <div class="cash-input-group">
+                        <span class="cash-prefix">$</span>
+                        <input type="number" id="cash-opening" class="form-input" min="0" step="0.01" placeholder="Fondo inicial">
+                    </div>
+                    <button class="btn btn-primary" onclick="openCashSession()"><i class="ph ph-lock-key-open"></i> Abrir caja</button>
+                </div>
+            </div>`;
+        return;
+    }
+    const s = cashState.session;
+    panel.innerHTML = `
+        <div class="cash-open">
+            <div class="cash-status open"><i class="ph ph-lock-key-open"></i> <span>Caja abierta</span>
+                <span class="cash-since">desde ${(s.opened_at || '').slice(0, 16)}</span>
+            </div>
+            <div class="cash-metrics">
+                <div class="cash-metric"><span class="k">Fondo inicial</span><span class="mono">${cashFmt(s.opening_amount)}</span></div>
+                <div class="cash-metric"><span class="k">Ventas efectivo</span><span class="mono">${cashFmt(cashState.cashSales)} <small>(${cashState.cashCount})</small></span></div>
+                <div class="cash-metric accent"><span class="k">Efectivo esperado</span><span class="mono">${cashFmt(cashState.expected)}</span></div>
+            </div>
+            <button class="btn btn-secondary" onclick="openCashModal()"><i class="ph ph-lock-key"></i> Cerrar caja</button>
+        </div>`;
+}
+
+async function openCashSession() {
+    const amount = parseFloat(document.getElementById('cash-opening').value) || 0;
+    try {
+        const res = await fetch('/api/cash/open', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ opening_amount: amount })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo abrir la caja');
+        await loadCashSession();
+        showToast(`Caja abierta · fondo ${cashFmt(amount)}`);
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+function openCashModal() {
+    if (!cashState || !cashState.open) return;
+    const s = cashState.session;
+    document.getElementById('arqueo-opening').textContent = cashFmt(s.opening_amount);
+    document.getElementById('arqueo-cash').textContent = cashFmt(cashState.cashSales);
+    document.getElementById('arqueo-expected').textContent = cashFmt(cashState.expected);
+    document.getElementById('arqueo-expected').dataset.value = cashState.expected;
+    document.getElementById('cash-counted').value = '';
+    document.getElementById('cash-notes').value = '';
+    document.getElementById('arqueo-diff').textContent = '—';
+    document.getElementById('arqueo-diff').classList.remove('negative');
+    document.getElementById('cash-error').style.display = 'none';
+    document.getElementById('cash-close-btn').disabled = false;
+    document.getElementById('cash-close-modal').classList.remove('hidden');
+}
+
+function closeCashModal() {
+    document.getElementById('cash-close-modal').classList.add('hidden');
+}
+
+function updateArqueoDiff() {
+    const expected = parseFloat(document.getElementById('arqueo-expected').dataset.value) || 0;
+    const counted = parseFloat(document.getElementById('cash-counted').value);
+    const el = document.getElementById('arqueo-diff');
+    if (!Number.isFinite(counted)) { el.textContent = '—'; el.classList.remove('negative'); return; }
+    const diff = counted - expected;
+    el.textContent = (diff >= 0 ? '+' : '') + cashFmt(diff);
+    el.classList.toggle('negative', diff < -0.001);
+}
+
+async function confirmCloseCash() {
+    const counted = parseFloat(document.getElementById('cash-counted').value);
+    const errEl = document.getElementById('cash-error');
+    const btn = document.getElementById('cash-close-btn');
+    if (!Number.isFinite(counted) || counted < 0) {
+        errEl.textContent = 'Ingresá el efectivo contado.';
+        errEl.style.display = 'block';
+        return;
+    }
+    btn.disabled = true;
+    errEl.style.display = 'none';
+    try {
+        const res = await fetch('/api/cash/close', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ counted_amount: counted, notes: document.getElementById('cash-notes').value })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo cerrar la caja');
+        closeCashModal();
+        await loadCashSession();
+        const diffTxt = data.difference === 0 ? 'sin diferencia'
+            : (data.difference > 0 ? `sobra ${cashFmt(data.difference)}` : `falta ${cashFmt(-data.difference)}`);
+        showToast(`Caja cerrada · ${diffTxt}`, data.difference < -0.001 ? 'error' : 'success');
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+    }
 }
 
 async function loadCaja() {
@@ -1920,8 +2046,45 @@ async function loadCompany() {
     document.getElementById('company-phone').value = c.phone || '';
     document.getElementById('company-email').value = c.email || '';
     document.getElementById('company-footer').value = c.footer_note || '';
+    document.getElementById('company-auto-ticket').checked = !!c.auto_ticket;
     pendingLogo = c.logo || '';
     renderLogoPreview();
+    loadBackups();
+}
+
+// ===== Backups =====
+async function loadBackups() {
+    const list = document.getElementById('backup-list');
+    try {
+        const backups = await fetch('/api/backups').then(r => r.json());
+        if (!backups || backups.length === 0) {
+            list.innerHTML = '<p class="abm-empty">Todavía no hay copias. El primer backup se crea unos segundos después de iniciar el servidor.</p>';
+            document.getElementById('backup-last').textContent = '';
+            return;
+        }
+        const last = new Date(backups[0].mtime);
+        document.getElementById('backup-last').textContent = `Última copia: ${last.toLocaleString('es-AR')}`;
+        const kb = n => `${Math.round(n / 1024).toLocaleString('es-AR')} KB`;
+        list.innerHTML = backups.slice(0, 12).map(b => `
+            <div class="backup-item">
+                <i class="ph ph-file-archive"></i>
+                <span class="backup-name mono">${b.file}</span>
+                <span class="backup-size mono">${kb(b.size)}</span>
+            </div>
+        `).join('');
+    } catch (e) {
+        list.innerHTML = '<p class="abm-empty" style="color:var(--red);">Error al listar copias</p>';
+    }
+}
+
+async function createBackup() {
+    try {
+        const res = await fetch('/api/backup', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo crear el backup');
+        await loadBackups();
+        showToast('Backup creado: ' + data.file);
+    } catch (err) { showToast(err.message, 'error'); }
 }
 
 function renderLogoPreview() {
@@ -1962,6 +2125,7 @@ async function saveCompany(e) {
         phone: document.getElementById('company-phone').value,
         email: document.getElementById('company-email').value,
         footer_note: document.getElementById('company-footer').value,
+        auto_ticket: document.getElementById('company-auto-ticket').checked,
         logo: pendingLogo
     };
     try {
@@ -1982,22 +2146,34 @@ async function saveCompany(e) {
 }
 
 // ===== Documentos del POS: presupuesto / tique =====
-async function printPosDocument(type) {
-    if (currentCart.length === 0) {
-        showToast('El carrito está vacío', 'error');
-        return;
-    }
-    // Asegurar datos de empresa frescos
-    if (!companyInfo || !companyInfo.name) await fetchCompany();
-    const c = companyInfo || {};
-    const comp = getCartComputation();
-
-    const lines = currentCart.map(item => {
+// Convierte el carrito actual en líneas para el documento (precio unit. con descuento prorrateado)
+function cartToDocLines(comp) {
+    return currentCart.map(item => {
         const price = getEffectivePrice(item.product, item.quantity);
         const factor = comp.subtotal > 0 ? (comp.finalTotal / comp.subtotal) : 1;
         const unit = price * factor;
         return { code: item.product.code, name: item.product.name, qty: item.quantity, unit, sub: unit * item.quantity };
     });
+}
+
+// type: 'presupuesto' | 'ticket'. saleData (opcional) = { comp, lines, saleNumber } para venta ya confirmada
+async function printPosDocument(type, saleData) {
+    let comp, lines;
+    if (saleData) {
+        comp = saleData.comp;
+        lines = saleData.lines;
+    } else {
+        if (currentCart.length === 0) {
+            showToast('El carrito está vacío', 'error');
+            return;
+        }
+        comp = getCartComputation();
+        lines = cartToDocLines(comp);
+    }
+    // Asegurar datos de empresa frescos
+    if (!companyInfo || !companyInfo.name) await fetchCompany();
+    const c = companyInfo || {};
+    const saleNumber = saleData ? saleData.saleNumber : null;
 
     const isTicket = type === 'ticket';
     const title = isTicket ? 'TIQUE / COMPROBANTE NO FISCAL' : 'PRESUPUESTO';
@@ -2058,7 +2234,7 @@ async function printPosDocument(type) {
             <div class="doc-title"><h2>${title}</h2></div>
         </div>
         <div class="meta">
-            <span>Fecha: ${new Date().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            <span>${saleNumber ? 'Comprobante Nº ' + saleNumber + ' · ' : ''}Fecha: ${new Date().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
             <span>${comp.count} ${comp.count === 1 ? 'artículo' : 'artículos'}</span>
         </div>
         <table>

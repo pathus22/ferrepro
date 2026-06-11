@@ -2,7 +2,8 @@
 - Definir integración para "Tique Fiscal" (¿impresora local o webservice AFIP?)
 - [HECHO 2026-06-11] Presupuesto y tique imprimibles/PDF desde el POS, con datos de
     la empresa (logo, CUIT, condición IVA, dirección, etc.) configurables en la vista
-    Configuración. Falta: factura fiscal (AFIP) y tique automático con N° tras cobrar.
+    Configuración. Tique automático con N° tras cobrar (opción en Configuración).
+    Falta: factura fiscal (AFIP).
 - Definir formato de importación de Excel (mapeo de columnas a utilizar)
 - Definir librería y parseo para lectura de catálogos en PDF
 - [HECHO 2026-06-10] Módulo de Inventario y Stock (ajustes entrada/salida/ajuste,
@@ -16,9 +17,9 @@
     cuenta con saldo corrido, cobranzas, lista de precios imprimible). Falta:
     sub-lista de obras/proyectos por corredor y exportar a Excel.
 - Construir el Módulo de Finanzas y Cajas
-    [PARCIAL 2026-06-11] Caja e Historial + Dashboard con estadísticas (KPIs, gráfico
-    de ventas 14 días, top productos, medios de pago, comparativa mensual, ganancia
-    estimada) listos. Falta: apertura/cierre de caja con arqueo, egresos/gastos,
-    cuentas a pagar, cheques.
+    [PARCIAL 2026-06-11] Caja e Historial + Dashboard + apertura/cierre de caja con
+    arqueo listos. Falta: egresos/gastos, cuentas a pagar, cheques.
+- [HECHO 2026-06-11] Backup automático de la DB (al iniciar + cada 6 hs, rotación 30
+    copias, backup manual desde Configuración). Falta: restaurar desde backup vía UI.
 - [HECHO 2026-06-10] Pantalla ABM dedicada de categorías y proveedores (vista
     "Categorías y Prov." con alta/edición/borrado; rename propaga a productos)
