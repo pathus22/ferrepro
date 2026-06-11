@@ -110,8 +110,10 @@ FASE 2 — VENTAS, FACTURACIÓN Y TICKET
   [ ] Modificación temporal del precio de un ítem en el carrito (descuento puntual)
   [ ] Campo de nota/observación en el carrito o por ítem
   [ ] Precio con IVA desglosado en el carrito
-  [ ] Indicador de stock disponible al agregar al carrito
-  [ ] Advertencia si se intenta vender más unidades que el stock disponible
+  [x] Control de stock al vender, configurable — 2026-06-11: 3 modos (Bloquear /
+      Avisar / Desactivado) en Configuración. Block rechaza vender más de lo
+      disponible (server + POS); Warn permite y avisa (carrito en rojo); Off no
+      descuenta stock. En los 3 modos se guardan sale_items -> estadísticas siempre.
 
 [ COBRO Y CIERRE DE VENTA ]
   [x] Modal/flujo de cobro con selección de medio de pago — 2026-06-10
@@ -224,6 +226,8 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
   [x] Productos más vendidos del mes (ranking por cantidad + ingreso)
   [x] Comparativa de períodos (este mes vs. mes anterior, % de variación)
   [x] Desglose por medio de pago del mes + ganancia estimada del mes
+  [x] Reporte de ventas por producto entre fechas (rango configurable) — 2026-06-11
+      (GET /api/reports/product-sales; funciona en cualquier modo de control de stock)
   [~] Ganancia por categoría: hay ganancia total del mes; falta desglose por categoría
   [ ] Exportación de reportes a PDF / Excel
 
@@ -276,23 +280,23 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~15 ítems
 
   FASE 2 — Ventas y Facturación
-    Completados:  ~20 ítems (POS + cobro + documentos + lector de código de barras)
-    Pendientes:   ~8 ítems
+    Completados:  ~21 ítems (+ control de stock al vender configurable)
+    Pendientes:   ~7 ítems
 
   FASE 3 — Corredores, Stock y Pedidos
     Completados:  ~19 ítems (Stock + Pedidos + Corredores con cuenta corriente)
     Pendientes:   ~3 ítems (sub-obras por corredor, export Excel, pedidos a Excel)
 
   FASE 4 — Finanzas y Administración
-    Completados:  ~15 ítems (Caja + arqueo + Dashboard + Gastos + Cuentas a pagar + Cheques)
-    Pendientes:   ~3 ítems
+    Completados:  ~16 ítems (+ reporte de ventas por producto entre fechas)
+    Pendientes:   ~2 ítems
 
   Transversales
     Completados:  ~17 ítems (+ start.bat con navegador/IP + doc de acceso por red)
     Pendientes:   ~2 ítems
 
-  TOTAL GENERAL: ~108 completados / ~26 pendientes
-  Avance estimado: ~79% del sistema completo
+  TOTAL GENERAL: ~111 completados / ~23 pendientes
+  Avance estimado: ~81% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)

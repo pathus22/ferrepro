@@ -205,6 +205,7 @@ try { db.exec(`ALTER TABLE corridors ADD COLUMN phone TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE corridors ADD COLUMN notes TEXT`); } catch(e) {}
 try { db.exec(`ALTER TABLE company_info ADD COLUMN auto_ticket INTEGER DEFAULT 0`); } catch(e) {}
 try { db.exec(`ALTER TABLE company_info ADD COLUMN admin_password_hash TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE company_info ADD COLUMN stock_control TEXT DEFAULT 'warn'`); } catch(e) {}
 
 // Sincronizar categorías y proveedores a partir de los productos ya cargados
 // (inserta solo los que falten; corre en cada arranque sin duplicar)

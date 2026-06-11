@@ -149,6 +149,26 @@
                         <div id="dash-methods"></div>
                     </div>
                 </div>
+
+                <!-- Reporte: ventas por producto entre fechas -->
+                <div class="panel report-panel">
+                    <div class="report-head">
+                        <h2 class="section-title" style="margin:0;"><i class="ph ph-list-magnifying-glass"></i> Ventas por producto (período)</h2>
+                        <div class="report-controls">
+                            <div class="date-picker"><i class="ph ph-calendar-blank"></i><input type="date" id="report-from"></div>
+                            <span class="report-sep">a</span>
+                            <div class="date-picker"><i class="ph ph-calendar-blank"></i><input type="date" id="report-to"></div>
+                            <button class="btn btn-primary btn-sm" onclick="loadProductReport()"><i class="ph ph-magnifying-glass"></i> Ver</button>
+                        </div>
+                    </div>
+                    <div class="report-summary" id="report-summary"></div>
+                    <div class="table-wrapper" style="box-shadow:none;">
+                        <table class="data-table">
+                            <thead><tr><th>Código</th><th>Producto</th><th>Cantidad vendida</th><th>Ingreso</th></tr></thead>
+                            <tbody id="report-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <!-- View: POS (Mostrador) -->
@@ -596,6 +616,23 @@
                                         <input type="checkbox" id="company-auto-ticket">
                                         <span>Imprimir el tique automáticamente al cobrar</span>
                                     </label>
+                                </div>
+                                <div class="form-field full">
+                                    <label>Control de stock al vender</label>
+                                    <div class="stock-control-opts">
+                                        <label class="radio-opt">
+                                            <input type="radio" name="stock-control" value="block">
+                                            <span><strong>Bloquear</strong> — no permite vender más de lo que hay.</span>
+                                        </label>
+                                        <label class="radio-opt">
+                                            <input type="radio" name="stock-control" value="warn">
+                                            <span><strong>Avisar</strong> — avisa pero permite vender igual (el stock puede quedar negativo).</span>
+                                        </label>
+                                        <label class="radio-opt">
+                                            <input type="radio" name="stock-control" value="off">
+                                            <span><strong>Desactivado</strong> — no descuenta stock ni avisa. Las ventas igual quedan registradas para las estadísticas.</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="settings-save-row">

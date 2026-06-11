@@ -269,7 +269,25 @@ app.post('/api/sales', (req, res) => {
             return res.status(400).json({ error: 'Total inválido' });
         }
 
+        // Modo de control de stock: off (no descuenta), warn (descuenta y permite negativo),
+        // block (descuenta y NO permite vender más de lo disponible)
+        const cfg = db.prepare('SELECT stock_control FROM company_info WHERE id = 1').get();
+        const stockMode = (cfg && cfg.stock_control) || 'warn';
+
         const getProduct = db.prepare('SELECT id, name, stock FROM products WHERE id = ?');
+
+        // En modo "block": rechazar si algún ítem supera el stock disponible
+        if (stockMode === 'block') {
+            for (const it of items) {
+                const p = getProduct.get(it.product_id);
+                if (p && parseInt(it.quantity) > p.stock) {
+                    return res.status(400).json({
+                        error: `Stock insuficiente de "${p.name}": disponible ${p.stock}, se pidieron ${parseInt(it.quantity)}`
+                    });
+                }
+            }
+        }
+
         // sale_date en hora local (no UTC) para que la caja por día sea correcta en AR (UTC-3)
         const insertSale = db.prepare(
             "INSERT INTO sales (total, payment_method, is_fiscal_ticket, corridor_id, sale_date) VALUES (?, ?, ?, ?, datetime('now', 'localtime'))"
@@ -306,8 +324,12 @@ app.post('/api/sales', (req, res) => {
                 const qty = parseInt(it.quantity);
                 const prod = getProduct.get(it.product_id);
                 insertItem.run(id, it.product_id, qty, it.unit_price);
-                updateStock.run(qty, it.product_id);
-                logMovement.run(it.product_id, -qty, prod.stock - qty, `Venta #${id}`);
+                // Solo descontar stock y registrar movimiento si el control NO está desactivado.
+                // sale_items se guarda SIEMPRE -> las estadísticas funcionan en cualquier modo.
+                if (stockMode !== 'off') {
+                    updateStock.run(qty, it.product_id);
+                    logMovement.run(it.product_id, -qty, prod.stock - qty, `Venta #${id}`);
+                }
             }
             return id;
         })();
@@ -671,6 +693,28 @@ app.post('/api/corridors/:id/payments', (req, res) => {
 
 // ===== DASHBOARD / ESTADÍSTICAS =====
 
+// Reporte de ventas por producto entre dos fechas (funciona en cualquier modo de stock,
+// porque sale_items se guarda siempre). ?from=YYYY-MM-DD&to=YYYY-MM-DD
+app.get('/api/reports/product-sales', (req, res) => {
+    try {
+        const from = req.query.from || db.prepare("SELECT date('now','localtime','start of month') d").get().d;
+        const to = req.query.to || db.prepare("SELECT date('now','localtime') d").get().d;
+        const rows = db.prepare(`
+            SELECT p.code, p.name, COALESCE(SUM(si.quantity),0) qty,
+                   COALESCE(SUM(si.quantity * si.unit_price),0) revenue
+            FROM sale_items si
+            JOIN sales s ON s.id = si.sale_id
+            LEFT JOIN products p ON p.id = si.product_id
+            WHERE date(s.sale_date) BETWEEN ? AND ?
+            GROUP BY si.product_id
+            ORDER BY qty DESC
+        `).all(from, to);
+        const totalQty = rows.reduce((a, r) => a + r.qty, 0);
+        const totalRevenue = rows.reduce((a, r) => a + r.revenue, 0);
+        res.json({ from, to, items: rows, totalQty, totalRevenue });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/dashboard', (req, res) => {
     try {
         const num = v => (v || 0);
@@ -761,15 +805,16 @@ app.get('/api/company', (req, res) => {
 // Guardar/actualizar los datos de la ferretería (fila única id=1)
 app.put('/api/company', (req, res) => {
     try {
-        const { name, cuit, iva_condition, address, phone, email, logo, footer_note, auto_ticket } = req.body;
+        const { name, cuit, iva_condition, address, phone, email, logo, footer_note, auto_ticket, stock_control } = req.body;
+        const mode = ['off', 'warn', 'block'].includes(stock_control) ? stock_control : 'warn';
         db.prepare(`
             UPDATE company_info SET
                 name = ?, cuit = ?, iva_condition = ?, address = ?,
-                phone = ?, email = ?, logo = ?, footer_note = ?, auto_ticket = ?
+                phone = ?, email = ?, logo = ?, footer_note = ?, auto_ticket = ?, stock_control = ?
             WHERE id = 1
         `).run(
             (name || '').trim(), (cuit || '').trim(), (iva_condition || '').trim(), (address || '').trim(),
-            (phone || '').trim(), (email || '').trim(), logo || '', (footer_note || '').trim(), auto_ticket ? 1 : 0
+            (phone || '').trim(), (email || '').trim(), logo || '', (footer_note || '').trim(), auto_ticket ? 1 : 0, mode
         );
         res.json({ message: 'Datos guardados' });
     } catch (err) { res.status(500).json({ error: err.message }); }

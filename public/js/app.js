@@ -79,8 +79,17 @@ function initNavigation() {
                 loadCompany();
             }
 
-            // Al volver al POS, dejar el foco en el buscador (listo para escanear)
-            if (targetId === 'view-pos') setTimeout(focusPosSearch, 50);
+            // Al volver al POS: refrescar catálogo (stock/precios/modo) y enfocar el buscador
+            if (targetId === 'view-pos') {
+                initPOS().then(() => {
+                    currentCart = currentCart.map(it => {
+                        const u = currentProducts.find(p => p.id === it.product.id);
+                        return u ? { ...it, product: u } : it;
+                    });
+                    renderCart();
+                });
+                setTimeout(focusPosSearch, 50);
+            }
 
             // En mobile, cerrar el drawer al navegar
             closeOverlays();
@@ -338,21 +347,32 @@ function renderPOSProducts(products) {
 // Cart Logic
 let currentCart = [];
 
+// Modo de control de stock configurado: 'off' | 'warn' | 'block'
+function stockMode() { return (companyInfo && companyInfo.stock_control) || 'warn'; }
+
 function addToCart(product) {
     const existing = currentCart.find(item => item.product.id === product.id);
-    if (existing) {
-        existing.quantity++;
-    } else {
-        currentCart.push({ product: product, quantity: 1 });
+    const nextQty = existing ? existing.quantity + 1 : 1;
+    if (stockMode() === 'block' && nextQty > product.stock) {
+        flashSearch(false);
+        showToast(`Sin stock suficiente de "${product.name}" (disponible: ${product.stock})`, 'error');
+        return;
     }
+    if (existing) existing.quantity++;
+    else currentCart.push({ product: product, quantity: 1 });
     renderCart();
 }
 
 function updateCartItemQuantity(productId, quantity) {
     const item = currentCart.find(i => i.product.id === productId);
     if (item) {
-        const qty = parseInt(quantity);
-        item.quantity = isNaN(qty) ? 1 : qty;
+        let qty = parseInt(quantity);
+        if (isNaN(qty)) qty = 1;
+        if (stockMode() === 'block' && qty > item.product.stock) {
+            qty = Math.max(item.product.stock, 0);
+            showToast(`Máximo disponible de "${item.product.name}": ${item.product.stock}`, 'error');
+        }
+        item.quantity = qty;
         if (item.quantity <= 0) {
             currentCart = currentCart.filter(i => i.product.id !== productId);
         }
@@ -401,6 +421,9 @@ function renderCart() {
         const itemTotal = price * item.quantity;
         total += itemTotal;
 
+        // Aviso de stock: solo en modo "avisar" y cuando la cantidad supera lo disponible
+        const overStock = stockMode() === 'warn' && item.quantity > item.product.stock;
+
         const div = document.createElement('div');
         div.className = 'cart-item';
 
@@ -410,6 +433,7 @@ function renderCart() {
                 <div class="ci-meta">
                     $${price.toFixed(2)} · ${formatSaleUnit(item.product)}
                     ${hasDiscount ? `<span class="ci-tier-tag">▼ precio x cant.</span>` : ''}
+                    ${overStock ? `<span class="ci-stock-warn">⚠ supera el stock (${item.product.stock} disp.)</span>` : ''}
                 </div>
             </div>
             <div class="ci-controls">
@@ -2513,6 +2537,9 @@ async function loadCompany() {
     document.getElementById('company-email').value = c.email || '';
     document.getElementById('company-footer').value = c.footer_note || '';
     document.getElementById('company-auto-ticket').checked = !!c.auto_ticket;
+    const mode = c.stock_control || 'warn';
+    const radio = document.querySelector(`input[name="stock-control"][value="${mode}"]`);
+    if (radio) radio.checked = true;
     pendingLogo = c.logo || '';
     renderLogoPreview();
     loadBackups();
@@ -2632,6 +2659,7 @@ async function saveCompany(e) {
         email: document.getElementById('company-email').value,
         footer_note: document.getElementById('company-footer').value,
         auto_ticket: document.getElementById('company-auto-ticket').checked,
+        stock_control: (document.querySelector('input[name="stock-control"]:checked') || {}).value || 'warn',
         logo: pendingLogo
     };
     try {
@@ -2769,6 +2797,39 @@ async function loadDashboard() {
         renderDashMethods(d.byMethod);
     } catch (e) {
         document.getElementById('dash-kpis').innerHTML = '<p class="abm-empty" style="color:var(--red);">Error al cargar el dashboard</p>';
+    }
+    // Reporte de ventas por producto: por defecto, del 1° del mes a hoy
+    const fromEl = document.getElementById('report-from');
+    const toEl = document.getElementById('report-to');
+    if (fromEl && !fromEl.value) fromEl.value = todayStr().slice(0, 8) + '01';
+    if (toEl && !toEl.value) toEl.value = todayStr();
+    loadProductReport();
+}
+
+async function loadProductReport() {
+    const from = document.getElementById('report-from').value;
+    const to = document.getElementById('report-to').value;
+    const tbody = document.getElementById('report-tbody');
+    const summary = document.getElementById('report-summary');
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);">Cargando...</td></tr>';
+    try {
+        const data = await fetch(`/api/reports/product-sales?from=${from}&to=${to}`).then(r => r.json());
+        const money = n => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        summary.innerHTML = `${data.items.length} producto${data.items.length === 1 ? '' : 's'} · ` +
+            `<strong>${data.totalQty}</strong> unidades · <strong style="color:var(--green)">${money(data.totalRevenue)}</strong>`;
+        if (data.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem;">Sin ventas en este período.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.items.map(r => `
+            <tr>
+                <td class="num">${r.code || '—'}</td>
+                <td><strong>${escapeHtml(r.name || '(producto eliminado)')}</strong></td>
+                <td class="num"><strong>${r.qty}</strong></td>
+                <td class="num">${money(r.revenue)}</td>
+            </tr>`).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--red);">Error al cargar el reporte</td></tr>';
     }
 }
 

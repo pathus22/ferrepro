@@ -22,6 +22,9 @@
 - [HECHO 2026-06-11] Backup automático + restaurar DB desde backup vía UI.
 - [HECHO 2026-06-11] Contraseña de admin configurable y hasheada server-side (ya no
     está hardcodeada como "test"; default inicial "admin", se cambia en Configuración).
+- [HECHO 2026-06-11] Control de stock al vender configurable (Bloquear/Avisar/Desactivado en
+    Configuración). En los 3 modos se registran las ventas (sale_items) para estadísticas.
+    + Reporte de ventas por producto entre fechas en el Dashboard.
 - [HECHO 2026-06-11] Lector de código de barras en el POS: foco automático, detección de
     ráfaga de teclas + Enter, agrega por código exacto, feedback visual (verde/rojo) y aviso
     si el código no existe. Funciona con cualquier lector USB (emula teclado).

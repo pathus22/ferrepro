@@ -2216,6 +2216,44 @@ body {
     .products-toolbar select { flex: 1 1 100%; min-width: 0; }
 }
 
+/* ============ CONTROL DE STOCK (config) + AVISO EN CARRITO ============ */
+
+.stock-control-opts { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.3rem; }
+.radio-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.55rem 0.7rem;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    transition: var(--transition);
+}
+.radio-opt:hover { border-color: var(--border-strong); }
+.radio-opt input[type="radio"] { margin-top: 2px; accent-color: var(--amber); cursor: pointer; flex-shrink: 0; }
+.radio-opt:has(input:checked) { border-color: var(--amber); background: rgba(255, 178, 36, 0.08); }
+
+.ci-stock-warn { color: var(--red); font-size: 0.72rem; display: inline-block; margin-top: 2px; }
+
+/* ============ REPORTE VENTAS POR PRODUCTO (dashboard) ============ */
+
+.report-panel { border-radius: var(--radius); padding: 1rem 1.1rem; margin-top: 0.9rem; }
+.report-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.8rem;
+}
+.report-controls { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.report-sep { color: var(--muted); font-size: 0.85rem; }
+.report-summary { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.6rem; }
+.report-controls .date-picker input[type="date"] { padding: 0.45rem 0.6rem 0.45rem 2.1rem; min-height: 36px; font-size: 0.82rem; }
+
 /* ============ RESPONSIVE ============ */
 
 /* Pantallas bajas (notebooks 1366x768): compactar verticalmente */
