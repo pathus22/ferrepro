@@ -141,15 +141,18 @@ FASE 3 — CORREDORES, STOCK Y PEDIDOS
 --------------------------------------------------------------------------------
 
 [ MÓDULO DE CORREDORES Y CUENTAS CLARAS ]
-  [ ] Vista "Corredores y Cuentas Claras" — solo placeholder actualmente
-  [ ] ABM de corredores desde la UI
-  [ ] Sub-lista "obra particular" por corredor
-  [ ] Lista de precios personalizada por corredor (% de descuento o precio fijo)
-  [ ] Exportación de lista de precios a PDF
-  [ ] Exportación de lista de precios a Excel
-  [ ] Registro de ventas a cuenta corriente por corredor
-  [ ] Estado de cuenta: saldo, historial de ventas, pagos recibidos
-  [ ] Registro de pagos/cobranzas de corredores
+  [x] Vista "Corredores y Cuentas" operativa (2026-06-10): resumen (corredores,
+      con deuda, deuda total por cobrar) + tabla con saldo por corredor
+  [x] ABM de corredores desde la UI (nombre, % descuento, teléfono, notas, flag
+      obra particular) — GET/POST/PUT/DELETE /api/corridors
+  [x] Lista de precios personalizada por corredor (% de descuento) imprimible/PDF
+  [x] Registro de ventas a cuenta corriente por corredor (medio de pago "Cta.
+      corriente" en el POS, aplica el descuento del corredor y carga a su cuenta)
+  [x] Estado de cuenta: saldo + historial de ventas y pagos con saldo corrido
+      (GET /api/corridors/:id devuelve movimientos con balance acumulado)
+  [x] Registro de pagos/cobranzas de corredores (POST /api/corridors/:id/payments)
+  [~] Flag "obra particular" listo; falta sub-lista de obras/proyectos por corredor
+  [ ] Exportación de lista de precios a Excel (XLSX) — pendiente
 
 [ MÓDULO DE STOCK E INVENTARIO ]
   [x] Vista "Inventario y Stock" operativa (2026-06-10): tarjetas de resumen
@@ -256,8 +259,8 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~15 ítems
 
   FASE 3 — Corredores, Stock y Pedidos
-    Completados:  ~12 ítems (Stock completo + Pedidos a proveedor completo)
-    Pendientes:   ~10 ítems
+    Completados:  ~19 ítems (Stock + Pedidos + Corredores con cuenta corriente)
+    Pendientes:   ~3 ítems (sub-obras por corredor, export Excel, pedidos a Excel)
 
   FASE 4 — Finanzas y Administración
     Completados:  ~4 ítems (Caja e Historial: resumen diario + desglose por medio)
@@ -267,8 +270,8 @@ RESUMEN CUANTITATIVO
     Completados:  ~9 ítems
     Pendientes:   ~9 ítems
 
-  TOTAL GENERAL: ~66 completados / ~68 pendientes
-  Avance estimado: ~49% del sistema completo
+  TOTAL GENERAL: ~73 completados / ~61 pendientes
+  Avance estimado: ~54% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
@@ -288,14 +291,16 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
      faltantes agrupada por proveedor, borrador editable, guardado con estado,
      recepción parcial/total (suma stock + costo), impresión/PDF del pedido.
 
-  5. Implementar importación de Excel con mapeo dinámico
+  5. [HECHO 2026-06-10] Módulo de Corredores: ABM, cuenta corriente (ventas a
+     cuenta desde el POS con descuento del corredor), estado de cuenta con saldo
+     corrido, cobranzas, lista de precios personalizada imprimible/PDF.
+
+  6. Implementar importación de Excel con mapeo dinámico
      → Desbloquea: carga masiva de catálogos de proveedores
+     (Requiere: Excel de ejemplo del usuario para definir el mapeo de columnas)
 
-  6. Construir Módulo de Corredores
-     → Desbloquea: ventas a cuenta corriente y listas de precios
-
-  7. Implementar generación de PDF del presupuesto/ticket de venta
-     (el pedido a proveedor ya tiene impresión; falta el del POS)
+  7. Implementar generación de PDF del presupuesto/ticket de venta del POS
+     (el pedido a proveedor y la lista de precios ya tienen impresión; falta el POS)
 
   8. Completar Finanzas (apertura/cierre de caja, gastos, cuentas a pagar) y
      Dashboard con estadísticas (ya hay datos de ventas reales en la DB)

@@ -1789,6 +1789,68 @@ body {
 }
 .order-total { font-size: 1.3rem; color: var(--green); }
 
+/* ============ CORREDORES / CUENTA CORRIENTE ============ */
+
+#corridor-stats { grid-template-columns: repeat(3, 1fr); }
+
+.cd-balance-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.8rem 1rem;
+    margin: 0.4rem 0 1rem;
+}
+.cd-balance-box .k {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+}
+.cd-balance { font-size: 1.7rem; font-weight: 700; color: var(--green); }
+.cd-balance.debt { color: var(--red); }
+
+.cd-pay {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.8rem;
+    margin-bottom: 0.8rem;
+}
+.cd-pay-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+}
+.cd-pay-title i { color: var(--amber); font-size: 1.1rem; }
+.cd-pay-row { display: flex; gap: 0.5rem; }
+.cd-pay-row #cd-pay-amount { width: 130px; flex-shrink: 0; font-family: var(--font-mono); }
+.cd-pay-row #cd-pay-note { flex: 1; }
+.cd-pay-row .btn { flex-shrink: 0; }
+
+.cd-actions { margin-bottom: 1rem; }
+
+.cd-statement-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0.5rem 0 0.6rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+}
+
+/* El estado de cuenta entra en el modal sin forzar scroll horizontal */
+#corridor-detail-modal .data-table { min-width: 0; }
+#corridor-detail-modal .data-table th,
+#corridor-detail-modal .data-table td { padding: 0.5rem 0.6rem; font-size: 0.82rem; }
+
 /* ============ RESPONSIVE ============ */
 
 /* Pantallas bajas (notebooks 1366x768): compactar verticalmente */
@@ -1831,6 +1893,13 @@ body {
 @media (max-width: 860px) {
     .abm-grid { grid-template-columns: 1fr; }
     .abm-list { max-height: none; }
+    #corridor-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Corredores: fila de cobro apilada en celular */
+@media (max-width: 640px) {
+    .cd-pay-row { flex-direction: column; }
+    .cd-pay-row #cd-pay-amount { width: 100%; }
 }
 
 /* Celular / tablet vertical: POS en una columna, carrito como hoja inferior */

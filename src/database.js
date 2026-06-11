@@ -101,6 +101,16 @@ function initDB() {
             FOREIGN KEY (order_id) REFERENCES purchase_orders(id),
             FOREIGN KEY (product_id) REFERENCES products(id)
         );
+
+        CREATE TABLE IF NOT EXISTS corridor_payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            corridor_id INTEGER NOT NULL,
+            amount REAL NOT NULL,
+            method TEXT,
+            note TEXT,
+            created_at DATETIME DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY (corridor_id) REFERENCES corridors(id)
+        );
     `);
     console.log("Tablas inicializadas correctamente.");
 }
@@ -110,6 +120,9 @@ initDB();
 // Migraciones: columnas agregadas después del schema inicial
 try { db.exec(`ALTER TABLE products ADD COLUMN sale_qty INTEGER DEFAULT 1`); } catch(e) {}
 try { db.exec(`ALTER TABLE products ADD COLUMN sale_unit TEXT DEFAULT 'unidades'`); } catch(e) {}
+try { db.exec(`ALTER TABLE corridors ADD COLUMN discount_percentage REAL DEFAULT 0`); } catch(e) {}
+try { db.exec(`ALTER TABLE corridors ADD COLUMN phone TEXT`); } catch(e) {}
+try { db.exec(`ALTER TABLE corridors ADD COLUMN notes TEXT`); } catch(e) {}
 
 // Sincronizar categorías y proveedores a partir de los productos ya cargados
 // (inserta solo los que falten; corre en cada arranque sin duplicar)

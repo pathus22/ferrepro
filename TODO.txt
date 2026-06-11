@@ -9,7 +9,10 @@
 - [HECHO 2026-06-10] Módulo de Pedidos a proveedor (sugerencias de reposición por
     proveedor, borrador editable, estados pendiente/parcial/recibido, recepción que
     suma stock y registra costo, impresión/PDF). Falta: exportar a Excel.
-- Construir el Módulo de Corredores y Cuentas Claras
+- [HECHO 2026-06-10] Módulo de Corredores y Cuentas Claras (ABM, cuenta corriente
+    con ventas a cuenta desde el POS aplicando descuento del corredor, estado de
+    cuenta con saldo corrido, cobranzas, lista de precios imprimible). Falta:
+    sub-lista de obras/proyectos por corredor y exportar a Excel.
 - Construir el Módulo de Finanzas y Cajas
     [PARCIAL 2026-06-10] Caja e Historial listo (resumen diario, desglose por medio
     de pago, historial con detalle, filtro por fecha). Falta: apertura/cierre de caja

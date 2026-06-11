@@ -71,6 +71,8 @@ function initNavigation() {
                 loadStock();
             } else if (targetId === 'view-orders') {
                 loadOrders();
+            } else if (targetId === 'view-corridors') {
+                loadCorridors();
             }
 
             // En mobile, cerrar el drawer al navegar
@@ -381,16 +383,71 @@ function getCartComputation() {
     return { items, subtotal, discountPct, discountAmount, finalTotal, count };
 }
 
+let corridorDiscountApplied = false; // true si el descuento del carrito lo puso un corredor
+
 function initCheckout() {
-    document.querySelectorAll('.pay-chip').forEach(chip => {
+    document.querySelectorAll('#pay-methods .pay-chip').forEach(chip => {
         chip.addEventListener('click', () => {
-            document.querySelectorAll('.pay-chip').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('#pay-methods .pay-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
             selectedPayMethod = chip.dataset.method;
             document.getElementById('cash-field').style.display =
                 selectedPayMethod === 'efectivo' ? '' : 'none';
+            const corridorField = document.getElementById('corridor-field');
+            corridorField.style.display = selectedPayMethod === 'cuenta_corriente' ? '' : 'none';
+            if (selectedPayMethod !== 'cuenta_corriente') {
+                document.getElementById('checkout-corridor').value = '';
+                clearCorridorDiscount();
+            }
+            refreshCheckoutTotal();
         });
     });
+}
+
+// Carga los corredores en el selector del checkout
+async function loadCheckoutCorridors() {
+    const sel = document.getElementById('checkout-corridor');
+    try {
+        const corridors = await fetch('/api/corridors').then(r => r.json());
+        sel.innerHTML = '<option value="">— Seleccionar corredor —</option>' +
+            corridors.map(c => `<option value="${c.id}" data-discount="${c.discount_percentage || 0}">${escapeHtml(c.name)}${c.discount_percentage ? ' · ' + c.discount_percentage + '% desc.' : ''}</option>`).join('');
+    } catch (e) { /* opcional */ }
+}
+
+// Aplica el descuento del corredor elegido como descuento del carrito
+function applyCorridorDiscount() {
+    const sel = document.getElementById('checkout-corridor');
+    const opt = sel.options[sel.selectedIndex];
+    const disc = parseFloat(opt?.dataset.discount) || 0;
+    const check = document.getElementById('cart-discount-check');
+    const input = document.getElementById('cart-discount-pct');
+    if (sel.value && disc > 0) {
+        if (check) check.checked = true;
+        if (input) { input.value = disc; input.disabled = false; }
+        corridorDiscountApplied = true;
+    } else {
+        clearCorridorDiscount();
+    }
+    renderCart();
+    refreshCheckoutTotal();
+}
+
+function clearCorridorDiscount() {
+    if (!corridorDiscountApplied) return;
+    const check = document.getElementById('cart-discount-check');
+    const input = document.getElementById('cart-discount-pct');
+    if (check) check.checked = false;
+    if (input) input.value = '';
+    corridorDiscountApplied = false;
+    renderCart();
+}
+
+function refreshCheckoutTotal() {
+    const c = getCartComputation();
+    document.getElementById('checkout-total').textContent = `$${c.finalTotal.toFixed(2)}`;
+    document.getElementById('checkout-items-hint').textContent =
+        `${c.count} ${c.count === 1 ? 'artículo' : 'artículos'}` +
+        (c.discountPct > 0 ? ` · ${c.discountPct}% descuento aplicado` : '');
 }
 
 function openCheckout() {
@@ -413,6 +470,12 @@ function openCheckout() {
     document.getElementById('checkout-fiscal').checked = false;
     document.getElementById('checkout-error').style.display = 'none';
     document.getElementById('checkout-confirm-btn').disabled = false;
+
+    // Cuenta corriente: ocultar selector, resetear y cargar corredores
+    document.getElementById('corridor-field').style.display = 'none';
+    document.getElementById('checkout-corridor').value = '';
+    corridorDiscountApplied = false;
+    loadCheckoutCorridors();
 
     closeCartSheet(); // en mobile, ocultar la hoja del carrito detrás del modal
     document.getElementById('checkout-modal').classList.remove('hidden');
@@ -448,6 +511,17 @@ async function confirmSale() {
         }
     }
 
+    // Para cuenta corriente, exigir un corredor
+    let corridorId = null;
+    if (selectedPayMethod === 'cuenta_corriente') {
+        corridorId = parseInt(document.getElementById('checkout-corridor').value) || null;
+        if (!corridorId) {
+            errEl.textContent = 'Elegí un corredor para cargar la venta a su cuenta.';
+            errEl.style.display = 'block';
+            return;
+        }
+    }
+
     btn.disabled = true;
     errEl.style.display = 'none';
 
@@ -459,7 +533,8 @@ async function confirmSale() {
                 items: c.items,
                 total: c.finalTotal,
                 payment_method: selectedPayMethod,
-                is_fiscal_ticket: document.getElementById('checkout-fiscal').checked
+                is_fiscal_ticket: document.getElementById('checkout-fiscal').checked,
+                corridor_id: corridorId
             })
         });
 
@@ -476,10 +551,12 @@ async function confirmSale() {
         if (discountCheck) discountCheck.checked = false;
         if (discountInput) discountInput.value = '';
 
+        corridorDiscountApplied = false;
         closeCheckout();
         await initPOS();   // refresca catálogo con el stock ya descontado
         renderCart();
-        showToast(`Venta #${data.id} registrada · $${c.finalTotal.toFixed(2)}`);
+        const extra = selectedPayMethod === 'cuenta_corriente' ? ' · a cuenta corriente' : '';
+        showToast(`Venta #${data.id} registrada · $${c.finalTotal.toFixed(2)}${extra}`);
     } catch (err) {
         errEl.textContent = err.message;
         errEl.style.display = 'block';
@@ -816,11 +893,11 @@ async function deleteProduct(id) {
 // ===== Caja e Historial (Finanzas) =====
 const PAY_LABELS = {
     efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito',
-    transferencia: 'Transferencia', cheque: 'Cheque'
+    transferencia: 'Transferencia', cheque: 'Cheque', cuenta_corriente: 'Cuenta corriente'
 };
 const PAY_ICONS = {
     efectivo: 'ph-money', debito: 'ph-credit-card', credito: 'ph-credit-card',
-    transferencia: 'ph-arrows-left-right', cheque: 'ph-scroll'
+    transferencia: 'ph-arrows-left-right', cheque: 'ph-scroll', cuenta_corriente: 'ph-user-list'
 };
 
 // Fecha de hoy en formato YYYY-MM-DD en hora LOCAL (no UTC)
@@ -1568,6 +1645,250 @@ async function printOrder(id) {
         setTimeout(() => win.print(), 350);
     } catch (e) {
         showToast('Error al generar el documento', 'error');
+    }
+}
+
+// ===== Módulo de Corredores y Cuenta Corriente =====
+let corridorsList = [];
+let currentCorridorDetail = null;
+
+async function loadCorridors() {
+    const tbody = document.getElementById('corridors-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);">Cargando...</td></tr>';
+    try {
+        corridorsList = await fetch('/api/corridors').then(r => r.json());
+        renderCorridorStats();
+        renderCorridorsTable();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--red);">Error al cargar corredores</td></tr>';
+    }
+}
+
+function renderCorridorStats() {
+    const totalDeuda = corridorsList.reduce((s, c) => s + Math.max(c.balance, 0), 0);
+    const conDeuda = corridorsList.filter(c => c.balance > 0.001).length;
+    document.getElementById('corridor-stats').innerHTML = `
+        <div class="stat-card">
+            <span class="stat-label"><i class="ph ph-users-three"></i> Corredores</span>
+            <span class="stat-value">${corridorsList.length}</span>
+        </div>
+        <div class="stat-card ${conDeuda ? 'stat-warn' : ''}">
+            <span class="stat-label"><i class="ph ph-user-list"></i> Con deuda</span>
+            <span class="stat-value">${conDeuda}</span>
+        </div>
+        <div class="stat-card stat-accent">
+            <span class="stat-label"><i class="ph ph-currency-circle-dollar"></i> Deuda total por cobrar</span>
+            <span class="stat-value">${money(totalDeuda)}</span>
+        </div>
+    `;
+}
+
+function renderCorridorsTable() {
+    const tbody = document.getElementById('corridors-tbody');
+    if (corridorsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">Todavía no hay corredores. Creá el primero con "Nuevo Corredor".</td></tr>';
+        return;
+    }
+    tbody.innerHTML = '';
+    corridorsList.forEach(c => {
+        const debt = c.balance > 0.001;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${escapeHtml(c.name)}</strong></td>
+            <td>${c.is_particular_builder ? '<span class="stock-badge badge-scaled">Obra particular</span>' : '<span style="color:var(--muted);">Corredor</span>'}</td>
+            <td class="num">${c.discount_percentage ? c.discount_percentage + '%' : '—'}</td>
+            <td>${escapeHtml(c.phone || '—')}</td>
+            <td class="num"><span class="${debt ? 'stock-qty out' : 'stock-qty ok'}">${money(c.balance)}</span></td>
+            <td class="td-actions">
+                <button class="btn btn-secondary btn-sm" onclick="openCorridorDetail(${c.id})"><i class="ph ph-receipt"></i> Cuenta</button>
+                <button class="btn-icon" title="Editar" onclick='openCorridorModal(${JSON.stringify(c)})'><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn-icon danger" title="Eliminar" onclick="deleteCorridor(${c.id})"><i class="ph ph-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// --- ABM corredor ---
+function openCorridorModal(corridor = null) {
+    const form = document.getElementById('corridor-form');
+    form.reset();
+    document.getElementById('corridor-error').style.display = 'none';
+    if (corridor && corridor.id) {
+        document.getElementById('corridor-modal-title').textContent = 'Editar Corredor';
+        document.getElementById('corridor-id').value = corridor.id;
+        document.getElementById('corridor-name').value = corridor.name;
+        document.getElementById('corridor-discount').value = corridor.discount_percentage || 0;
+        document.getElementById('corridor-phone').value = corridor.phone || '';
+        document.getElementById('corridor-builder').checked = !!corridor.is_particular_builder;
+        document.getElementById('corridor-notes').value = corridor.notes || '';
+    } else {
+        document.getElementById('corridor-modal-title').textContent = 'Nuevo Corredor';
+        document.getElementById('corridor-id').value = '';
+    }
+    document.getElementById('corridor-modal').classList.remove('hidden');
+}
+
+function closeCorridorModal() {
+    document.getElementById('corridor-modal').classList.add('hidden');
+}
+
+async function saveCorridor(e) {
+    e.preventDefault();
+    const id = document.getElementById('corridor-id').value;
+    const errEl = document.getElementById('corridor-error');
+    const payload = {
+        name: document.getElementById('corridor-name').value,
+        discount_percentage: parseFloat(document.getElementById('corridor-discount').value) || 0,
+        phone: document.getElementById('corridor-phone').value,
+        is_particular_builder: document.getElementById('corridor-builder').checked,
+        notes: document.getElementById('corridor-notes').value
+    };
+    try {
+        const res = await fetch(id ? `/api/corridors/${id}` : '/api/corridors', {
+            method: id ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo guardar');
+        closeCorridorModal();
+        await loadCorridors();
+        showToast(id ? 'Corredor actualizado' : 'Corredor creado');
+    } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+    }
+}
+
+async function deleteCorridor(id) {
+    const c = corridorsList.find(x => x.id === id);
+    if (!confirm(`¿Eliminar al corredor "${c ? c.name : ''}"?`)) return;
+    try {
+        const res = await fetch(`/api/corridors/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo eliminar');
+        await loadCorridors();
+        showToast('Corredor eliminado');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+// --- Detalle / estado de cuenta ---
+async function openCorridorDetail(id) {
+    try {
+        currentCorridorDetail = await fetch(`/api/corridors/${id}`).then(r => r.json());
+        const c = currentCorridorDetail;
+        document.getElementById('cd-name').textContent = c.name;
+        const subParts = [];
+        if (c.is_particular_builder) subParts.push('Obra particular');
+        if (c.discount_percentage) subParts.push(`${c.discount_percentage}% de descuento`);
+        if (c.phone) subParts.push(`Tel: ${escapeHtml(c.phone)}`);
+        document.getElementById('cd-sub').innerHTML = subParts.join(' · ') || 'Sin datos adicionales';
+        const balEl = document.getElementById('cd-balance');
+        balEl.textContent = money(c.balance);
+        balEl.classList.toggle('debt', c.balance > 0.001);
+        document.getElementById('cd-pay-amount').value = '';
+        document.getElementById('cd-pay-note').value = '';
+        renderStatement(c.movements);
+        document.getElementById('corridor-detail-modal').classList.remove('hidden');
+    } catch (e) {
+        showToast('Error al abrir la cuenta', 'error');
+    }
+}
+
+function renderStatement(movements) {
+    const tbody = document.getElementById('cd-statement');
+    if (!movements || movements.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1rem;">Sin movimientos.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = movements.map(m => `
+        <tr>
+            <td class="num">${(m.date || '').slice(0, 16)}</td>
+            <td>${escapeHtml(m.ref)}</td>
+            <td class="num">${m.debit ? money(m.debit) : '—'}</td>
+            <td class="num" style="color:var(--green);">${m.credit ? money(m.credit) : '—'}</td>
+            <td class="num"><strong>${money(m.balance)}</strong></td>
+        </tr>
+    `).join('');
+}
+
+function closeCorridorDetail() {
+    document.getElementById('corridor-detail-modal').classList.add('hidden');
+    currentCorridorDetail = null;
+}
+
+async function registerPayment() {
+    if (!currentCorridorDetail) return;
+    const amount = parseFloat(document.getElementById('cd-pay-amount').value);
+    if (!Number.isFinite(amount) || amount <= 0) {
+        showToast('Ingresá un importe válido', 'error');
+        return;
+    }
+    const note = document.getElementById('cd-pay-note').value;
+    try {
+        const res = await fetch(`/api/corridors/${currentCorridorDetail.id}/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, method: 'efectivo', note })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo registrar el pago');
+        showToast(`Cobranza registrada · ${money(amount)}`);
+        await openCorridorDetail(currentCorridorDetail.id); // refrescar estado de cuenta
+        loadCorridors(); // refrescar saldos de la tabla detrás
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+// Lista de precios personalizada del corredor (precio con su descuento) → imprimible
+async function printPriceList() {
+    if (!currentCorridorDetail) return;
+    const c = currentCorridorDetail;
+    const disc = c.discount_percentage || 0;
+    try {
+        const products = await fetchProducts();
+        const rows = products.map(p => {
+            const base = p.cost * (1 + p.profit_margin / 100);
+            const price = base * (1 - disc / 100);
+            return `<tr>
+                <td>${p.code}</td>
+                <td>${escapeHtml(p.name)}</td>
+                <td style="text-align:right;">${money(base)}</td>
+                <td style="text-align:right;"><strong>${money(price)}</strong></td>
+            </tr>`;
+        }).join('');
+        const win = window.open('', '_blank', 'width=820,height=900');
+        win.document.write(`
+            <html><head><title>Lista de precios - ${escapeHtml(c.name)}</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 30px; color: #1a1a1a; }
+                h1 { margin: 0 0 4px; } .muted { color:#666; font-size:13px; }
+                table { width:100%; border-collapse:collapse; margin-top:18px; }
+                th,td { padding:7px 10px; border-bottom:1px solid #ddd; font-size:13px; }
+                th { text-align:left; background:#f4f4f4; }
+            </style></head><body>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                    <h1>Lista de precios</h1>
+                    <div class="muted">Corredor: <strong>${escapeHtml(c.name)}</strong>${disc ? ' · Descuento ' + disc + '%' : ''}</div>
+                </div>
+                <div style="text-align:right;"><strong>FerrePro</strong></div>
+            </div>
+            <table>
+                <thead><tr><th>Código</th><th>Descripción</th><th style="text-align:right;">Precio lista</th><th style="text-align:right;">Precio ${escapeHtml(c.name)}</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            <p class="muted" style="margin-top:30px;">Generado por FerrePro</p>
+            </body></html>`);
+        win.document.close();
+        win.focus();
+        setTimeout(() => win.print(), 350);
+    } catch (e) {
+        showToast('Error al generar la lista', 'error');
     }
 }
 

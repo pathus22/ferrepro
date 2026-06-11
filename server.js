@@ -473,6 +473,112 @@ app.delete('/api/purchase-orders/:id', (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ===== CORREDORES Y CUENTA CORRIENTE =====
+
+// Saldo (deuda) de un corredor = ventas a cuenta corriente - pagos recibidos
+function corridorBalance(id) {
+    const charges = db.prepare(
+        "SELECT COALESCE(SUM(total),0) t FROM sales WHERE corridor_id = ? AND payment_method = 'cuenta_corriente'"
+    ).get(id).t;
+    const payments = db.prepare(
+        'SELECT COALESCE(SUM(amount),0) t FROM corridor_payments WHERE corridor_id = ?'
+    ).get(id).t;
+    return { charges, payments, balance: charges - payments };
+}
+
+// Listar corredores con su saldo
+app.get('/api/corridors', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT * FROM corridors ORDER BY name COLLATE NOCASE').all();
+        rows.forEach(c => { c.balance = corridorBalance(c.id).balance; });
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Detalle de un corredor: datos + saldo + estado de cuenta (ventas y pagos con saldo corrido)
+app.get('/api/corridors/:id', (req, res) => {
+    try {
+        const c = db.prepare('SELECT * FROM corridors WHERE id = ?').get(req.params.id);
+        if (!c) return res.status(404).json({ error: 'Corredor no encontrado' });
+        const bal = corridorBalance(c.id);
+
+        const sales = db.prepare(
+            "SELECT id, sale_date AS date, total FROM sales WHERE corridor_id = ? AND payment_method = 'cuenta_corriente'"
+        ).all(c.id).map(s => ({ type: 'venta', date: s.date, ref: `Venta #${s.id}`, debit: s.total, credit: 0 }));
+
+        const payments = db.prepare(
+            'SELECT id, created_at AS date, amount, method, note FROM corridor_payments WHERE corridor_id = ?'
+        ).all(c.id).map(p => ({
+            type: 'pago', date: p.date,
+            ref: `Pago${p.method ? ' (' + p.method + ')' : ''}${p.note ? ' · ' + p.note : ''}`,
+            debit: 0, credit: p.amount
+        }));
+
+        // Ordenar cronológicamente y calcular saldo corrido
+        const movements = [...sales, ...payments].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        let running = 0;
+        movements.forEach(m => { running += m.debit - m.credit; m.balance = running; });
+
+        res.json({ ...c, ...bal, movements });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Crear corredor
+app.post('/api/corridors', (req, res) => {
+    try {
+        const name = (req.body.name || '').trim();
+        if (!name) return res.status(400).json({ error: 'El nombre es obligatorio' });
+        const { discount_percentage, is_particular_builder, phone, notes } = req.body;
+        const r = db.prepare(
+            'INSERT INTO corridors (name, discount_percentage, is_particular_builder, phone, notes) VALUES (?, ?, ?, ?, ?)'
+        ).run(name, discount_percentage || 0, is_particular_builder ? 1 : 0, (phone || '').trim(), (notes || '').trim());
+        res.json({ id: r.lastInsertRowid, message: 'Corredor creado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Editar corredor
+app.put('/api/corridors/:id', (req, res) => {
+    try {
+        const name = (req.body.name || '').trim();
+        if (!name) return res.status(400).json({ error: 'El nombre es obligatorio' });
+        const { discount_percentage, is_particular_builder, phone, notes } = req.body;
+        const r = db.prepare(
+            'UPDATE corridors SET name = ?, discount_percentage = ?, is_particular_builder = ?, phone = ?, notes = ? WHERE id = ?'
+        ).run(name, discount_percentage || 0, is_particular_builder ? 1 : 0, (phone || '').trim(), (notes || '').trim(), req.params.id);
+        if (r.changes === 0) return res.status(404).json({ error: 'Corredor no encontrado' });
+        res.json({ message: 'Corredor actualizado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Eliminar corredor (solo si no tiene ventas ni pagos)
+app.delete('/api/corridors/:id', (req, res) => {
+    try {
+        const hasSales = db.prepare('SELECT 1 FROM sales WHERE corridor_id = ? LIMIT 1').get(req.params.id);
+        const hasPays = db.prepare('SELECT 1 FROM corridor_payments WHERE corridor_id = ? LIMIT 1').get(req.params.id);
+        if (hasSales || hasPays) {
+            return res.status(400).json({ error: 'No se puede eliminar: el corredor tiene movimientos registrados' });
+        }
+        db.prepare('DELETE FROM corridors WHERE id = ?').run(req.params.id);
+        res.json({ message: 'Corredor eliminado' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Registrar un pago / cobranza de un corredor
+app.post('/api/corridors/:id/payments', (req, res) => {
+    try {
+        const amount = parseFloat(req.body.amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return res.status(400).json({ error: 'Importe inválido' });
+        }
+        const c = db.prepare('SELECT id FROM corridors WHERE id = ?').get(req.params.id);
+        if (!c) return res.status(404).json({ error: 'Corredor no encontrado' });
+        const { method, note } = req.body;
+        db.prepare('INSERT INTO corridor_payments (corridor_id, amount, method, note) VALUES (?, ?, ?, ?)')
+            .run(req.params.id, amount, (method || 'efectivo'), (note || '').trim());
+        res.json({ message: 'Pago registrado', balance: corridorBalance(req.params.id).balance });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Iniciar servidor
 app.listen(PORT, () => {
     console.log(`Servidor local corriendo en http://localhost:${PORT}`);

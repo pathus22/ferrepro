@@ -349,10 +349,28 @@
             <section id="view-corridors" class="view hidden">
                 <header class="view-header">
                     <h1>Corredores y Cuentas</h1>
+                    <p class="view-desc">Cuenta corriente, descuentos y listas de precios</p>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openCorridorModal()"><i class="ph ph-plus"></i> Nuevo Corredor</button>
+                    </div>
                 </header>
-                <div class="panel empty-state">
-                    <i class="ph ph-wrench"></i>
-                    <p>Módulo de Corredores en construcción.</p>
+
+                <div class="stats-grid" id="corridor-stats"></div>
+
+                <div class="panel table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th>Descuento</th>
+                                <th>Teléfono</th>
+                                <th>Saldo (deuda)</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corridors-tbody"></tbody>
+                    </table>
                 </div>
             </section>
 
@@ -531,7 +549,16 @@
                     <button type="button" class="pay-chip" data-method="credito"><i class="ph ph-credit-card"></i> Crédito</button>
                     <button type="button" class="pay-chip" data-method="transferencia"><i class="ph ph-arrows-left-right"></i> Transfer.</button>
                     <button type="button" class="pay-chip" data-method="cheque"><i class="ph ph-scroll"></i> Cheque</button>
+                    <button type="button" class="pay-chip" data-method="cuenta_corriente"><i class="ph ph-user-list"></i> Cta. corriente</button>
                 </div>
+            </div>
+
+            <!-- Cuenta corriente: elegir corredor (aplica su descuento) -->
+            <div class="checkout-field" id="corridor-field" style="display: none;">
+                <label for="checkout-corridor">Corredor / cuenta</label>
+                <select id="checkout-corridor" class="form-input" onchange="applyCorridorDiscount()">
+                    <option value="">— Seleccionar corredor —</option>
+                </select>
             </div>
 
             <!-- Vuelto: solo para efectivo -->
@@ -674,6 +701,84 @@
                 <button type="button" class="btn btn-secondary" onclick="closeReceiveModal()">Cancelar</button>
                 <button type="button" class="btn btn-secondary" onclick="fillReceiveAll()"><i class="ph ph-check-square"></i> Recibir todo</button>
                 <button type="button" class="btn btn-primary" id="receive-confirm-btn" onclick="confirmReceive()"><i class="ph ph-check-fat"></i> Confirmar recepción</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CORRIDOR ABM MODAL -->
+    <div id="corridor-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeCorridorModal()"><i class="ph ph-x"></i></button>
+            <h2 id="corridor-modal-title">Nuevo Corredor</h2>
+            <form id="corridor-form" onsubmit="saveCorridor(event)">
+                <input type="hidden" id="corridor-id">
+                <div class="form-grid">
+                    <div class="form-field full">
+                        <label for="corridor-name">Nombre</label>
+                        <input type="text" id="corridor-name" class="form-input" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="corridor-discount">Descuento (%)</label>
+                        <input type="number" id="corridor-discount" class="form-input" min="0" max="100" step="0.1" value="0">
+                    </div>
+                    <div class="form-field">
+                        <label for="corridor-phone">Teléfono <span class="opt">(opcional)</span></label>
+                        <input type="text" id="corridor-phone" class="form-input">
+                    </div>
+                    <div class="form-field full">
+                        <label class="fiscal-toggle" style="margin:0;">
+                            <input type="checkbox" id="corridor-builder">
+                            <span>Es obra particular</span>
+                        </label>
+                    </div>
+                    <div class="form-field full">
+                        <label for="corridor-notes">Notas <span class="opt">(opcional)</span></label>
+                        <input type="text" id="corridor-notes" class="form-input">
+                    </div>
+                </div>
+                <p class="form-error" id="corridor-error" style="display: none;"></p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCorridorModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CORRIDOR DETAIL / ACCOUNT STATEMENT MODAL -->
+    <div id="corridor-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-lg">
+            <button class="close-btn" onclick="closeCorridorDetail()"><i class="ph ph-x"></i></button>
+            <h2 id="cd-name">Corredor</h2>
+            <p class="stock-modal-prod" id="cd-sub"></p>
+
+            <div class="cd-balance-box">
+                <span class="k">Saldo actual (deuda)</span>
+                <span class="cd-balance mono" id="cd-balance">$0.00</span>
+            </div>
+
+            <!-- Registrar pago -->
+            <div class="cd-pay">
+                <span class="cd-pay-title"><i class="ph ph-hand-coins"></i> Registrar cobranza</span>
+                <div class="cd-pay-row">
+                    <input type="number" id="cd-pay-amount" class="form-input" min="0" step="0.01" placeholder="Importe $">
+                    <input type="text" id="cd-pay-note" class="form-input" placeholder="Nota (opcional)">
+                    <button type="button" class="btn btn-primary" onclick="registerPayment()"><i class="ph ph-check"></i> Cobrar</button>
+                </div>
+            </div>
+
+            <div class="cd-actions">
+                <button type="button" class="btn btn-secondary" onclick="printPriceList()"><i class="ph ph-list-numbers"></i> Imprimir lista de precios</button>
+            </div>
+
+            <h3 class="cd-statement-title">Estado de cuenta</h3>
+            <div class="table-wrapper" style="box-shadow:none;">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Fecha</th><th>Detalle</th><th>Debe</th><th>Haber</th><th>Saldo</th></tr>
+                    </thead>
+                    <tbody id="cd-statement"></tbody>
+                </table>
             </div>
         </div>
     </div>
