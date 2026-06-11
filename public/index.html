@@ -74,6 +74,9 @@
                     <button class="nav-item" data-target="view-finances">
                         <i class="ph ph-chart-line-up"></i> <span>Finanzas y Cajas</span>
                     </button>
+                    <button class="nav-item" data-target="view-settings">
+                        <i class="ph ph-gear"></i> <span>Configuración</span>
+                    </button>
                 </div>
             </nav>
 
@@ -186,8 +189,8 @@
                         <div class="cart-actions">
                             <button class="btn btn-primary btn-cobrar" onclick="openCheckout()"><i class="ph ph-money"></i> Cobrar</button>
                             <div class="cart-actions-row">
-                                <button class="btn btn-secondary" onclick="showTodoModal('Imprimir como presupuesto')"><i class="ph ph-printer"></i> Presupuesto</button>
-                                <button class="btn btn-secondary" onclick="showTodoModal('Tique Fiscal')"><i class="ph ph-receipt"></i> Tique Fiscal</button>
+                                <button class="btn btn-secondary" onclick="printPosDocument('presupuesto')"><i class="ph ph-printer"></i> Presupuesto</button>
+                                <button class="btn btn-secondary" onclick="printPosDocument('ticket')"><i class="ph ph-receipt"></i> Tique</button>
                             </div>
                         </div>
                     </div>
@@ -409,6 +412,76 @@
                         <tbody id="caja-tbody"></tbody>
                     </table>
                 </div>
+            </section>
+
+            <!-- View: Configuración (datos de la empresa) -->
+            <section id="view-settings" class="view hidden">
+                <header class="view-header">
+                    <h1>Configuración</h1>
+                    <p class="view-desc">Datos de la ferretería para presupuestos, tiques y facturas</p>
+                </header>
+
+                <form id="company-form" onsubmit="saveCompany(event)">
+                    <div class="settings-grid">
+                        <!-- Logo -->
+                        <div class="panel settings-logo-panel">
+                            <h2 class="settings-section-title"><i class="ph ph-image"></i> Logo</h2>
+                            <div class="logo-preview" id="logo-preview">
+                                <span class="logo-placeholder"><i class="ph ph-image-square"></i><br>Sin logo</span>
+                            </div>
+                            <div class="logo-actions">
+                                <label class="btn btn-secondary btn-sm" for="logo-input"><i class="ph ph-upload-simple"></i> Subir logo</label>
+                                <input type="file" id="logo-input" accept="image/*" style="display:none;" onchange="onLogoSelected(event)">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="clearLogo()"><i class="ph ph-trash"></i> Quitar</button>
+                            </div>
+                            <p class="settings-hint">PNG o JPG, preferentemente cuadrado. Máx. ~2 MB.</p>
+                        </div>
+
+                        <!-- Datos -->
+                        <div class="panel">
+                            <h2 class="settings-section-title"><i class="ph ph-storefront"></i> Datos de la empresa</h2>
+                            <div class="form-grid">
+                                <div class="form-field full">
+                                    <label for="company-name">Razón social / Nombre</label>
+                                    <input type="text" id="company-name" class="form-input" required>
+                                </div>
+                                <div class="form-field">
+                                    <label for="company-cuit">CUIT</label>
+                                    <input type="text" id="company-cuit" class="form-input" placeholder="30-12345678-9">
+                                </div>
+                                <div class="form-field">
+                                    <label for="company-iva">Condición frente al IVA</label>
+                                    <select id="company-iva" class="form-input">
+                                        <option>Responsable Inscripto</option>
+                                        <option>Monotributo</option>
+                                        <option>Exento</option>
+                                        <option>Consumidor Final</option>
+                                        <option>No Responsable</option>
+                                    </select>
+                                </div>
+                                <div class="form-field full">
+                                    <label for="company-address">Dirección</label>
+                                    <input type="text" id="company-address" class="form-input">
+                                </div>
+                                <div class="form-field">
+                                    <label for="company-phone">Teléfono</label>
+                                    <input type="text" id="company-phone" class="form-input">
+                                </div>
+                                <div class="form-field">
+                                    <label for="company-email">Email</label>
+                                    <input type="email" id="company-email" class="form-input">
+                                </div>
+                                <div class="form-field full">
+                                    <label for="company-footer">Nota al pie <span class="opt">(aparece en los documentos)</span></label>
+                                    <input type="text" id="company-footer" class="form-input" placeholder="Ej: Presupuesto válido por 7 días. ¡Gracias por su compra!">
+                                </div>
+                            </div>
+                            <div class="settings-save-row">
+                                <button type="submit" class="btn btn-primary"><i class="ph ph-floppy-disk"></i> Guardar datos</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
             </section>
 
         </main>

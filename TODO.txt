@@ -1,6 +1,8 @@
 - [HECHO 2026-06-10] Flujo de cobro: modal de pago + guardado en sales/sale_items + descuento de stock
 - Definir integración para "Tique Fiscal" (¿impresora local o webservice AFIP?)
-- Definir lógica, diseño e impresión de "Imprimir como presupuesto"
+- [HECHO 2026-06-11] Presupuesto y tique imprimibles/PDF desde el POS, con datos de
+    la empresa (logo, CUIT, condición IVA, dirección, etc.) configurables en la vista
+    Configuración. Falta: factura fiscal (AFIP) y tique automático con N° tras cobrar.
 - Definir formato de importación de Excel (mapeo de columnas a utilizar)
 - Definir librería y parseo para lectura de catálogos en PDF
 - [HECHO 2026-06-10] Módulo de Inventario y Stock (ajustes entrada/salida/ajuste,

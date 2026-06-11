@@ -73,6 +73,8 @@ function initNavigation() {
                 loadOrders();
             } else if (targetId === 'view-corridors') {
                 loadCorridors();
+            } else if (targetId === 'view-settings') {
+                loadCompany();
             }
 
             // En mobile, cerrar el drawer al navegar
@@ -1892,12 +1894,190 @@ async function printPriceList() {
     }
 }
 
+// ===== Configuración: datos de la empresa =====
+let companyInfo = {};   // cache global, usado por los documentos
+let pendingLogo = '';   // logo seleccionado (data URL) aún sin guardar
+
+async function fetchCompany() {
+    try { companyInfo = await fetch('/api/company').then(r => r.json()) || {}; }
+    catch (e) { companyInfo = {}; }
+    return companyInfo;
+}
+
+async function loadCompany() {
+    await fetchCompany();
+    const c = companyInfo;
+    document.getElementById('company-name').value = c.name || '';
+    document.getElementById('company-cuit').value = c.cuit || '';
+    document.getElementById('company-iva').value = c.iva_condition || 'Responsable Inscripto';
+    document.getElementById('company-address').value = c.address || '';
+    document.getElementById('company-phone').value = c.phone || '';
+    document.getElementById('company-email').value = c.email || '';
+    document.getElementById('company-footer').value = c.footer_note || '';
+    pendingLogo = c.logo || '';
+    renderLogoPreview();
+}
+
+function renderLogoPreview() {
+    const box = document.getElementById('logo-preview');
+    if (pendingLogo) {
+        box.innerHTML = `<img src="${pendingLogo}" alt="Logo">`;
+    } else {
+        box.innerHTML = '<span class="logo-placeholder"><i class="ph ph-image-square"></i><br>Sin logo</span>';
+    }
+}
+
+function onLogoSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2.5 * 1024 * 1024) {
+        showToast('El logo es muy pesado (máx. ~2 MB)', 'error');
+        e.target.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => { pendingLogo = reader.result; renderLogoPreview(); };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+}
+
+function clearLogo() {
+    pendingLogo = '';
+    renderLogoPreview();
+}
+
+async function saveCompany(e) {
+    e.preventDefault();
+    const payload = {
+        name: document.getElementById('company-name').value,
+        cuit: document.getElementById('company-cuit').value,
+        iva_condition: document.getElementById('company-iva').value,
+        address: document.getElementById('company-address').value,
+        phone: document.getElementById('company-phone').value,
+        email: document.getElementById('company-email').value,
+        footer_note: document.getElementById('company-footer').value,
+        logo: pendingLogo
+    };
+    try {
+        const res = await fetch('/api/company', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'No se pudieron guardar los datos');
+        }
+        companyInfo = { ...payload };
+        showToast('Datos de la empresa guardados');
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+// ===== Documentos del POS: presupuesto / tique =====
+async function printPosDocument(type) {
+    if (currentCart.length === 0) {
+        showToast('El carrito está vacío', 'error');
+        return;
+    }
+    // Asegurar datos de empresa frescos
+    if (!companyInfo || !companyInfo.name) await fetchCompany();
+    const c = companyInfo || {};
+    const comp = getCartComputation();
+
+    const lines = currentCart.map(item => {
+        const price = getEffectivePrice(item.product, item.quantity);
+        const factor = comp.subtotal > 0 ? (comp.finalTotal / comp.subtotal) : 1;
+        const unit = price * factor;
+        return { code: item.product.code, name: item.product.name, qty: item.quantity, unit, sub: unit * item.quantity };
+    });
+
+    const isTicket = type === 'ticket';
+    const title = isTicket ? 'TIQUE / COMPROBANTE NO FISCAL' : 'PRESUPUESTO';
+    const fmt = n => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const companyLines = [
+        c.cuit ? `CUIT: ${escapeHtml(c.cuit)}` : '',
+        c.iva_condition ? escapeHtml(c.iva_condition) : '',
+        c.address ? escapeHtml(c.address) : '',
+        [c.phone ? 'Tel: ' + escapeHtml(c.phone) : '', c.email ? escapeHtml(c.email) : ''].filter(Boolean).join(' · ')
+    ].filter(Boolean).join('<br>');
+
+    const rows = lines.map(l => `
+        <tr>
+            <td>${l.code || ''}</td>
+            <td>${escapeHtml(l.name)}</td>
+            <td class="r">${l.qty}</td>
+            <td class="r">${fmt(l.unit)}</td>
+            <td class="r">${fmt(l.sub)}</td>
+        </tr>`).join('');
+
+    const discountRow = comp.discountPct > 0
+        ? `<tr><td colspan="4" class="r">Descuento (${comp.discountPct}%)</td><td class="r">-${fmt(comp.discountAmount)}</td></tr>`
+        : '';
+
+    // Ancho: ticket angosto (80mm) / presupuesto A4
+    const pageCss = isTicket
+        ? '@page { size: 80mm auto; margin: 4mm; } body { width: 72mm; }'
+        : '@page { size: A4; margin: 16mm; }';
+
+    const win = window.open('', '_blank', isTicket ? 'width=380,height=720' : 'width=820,height=900');
+    win.document.write(`
+        <html><head><title>${title}</title>
+        <style>
+            ${pageCss}
+            * { box-sizing: border-box; }
+            body { font-family: ${isTicket ? "'Courier New', monospace" : 'Arial, sans-serif'}; color:#111; background:#fff; padding:${isTicket ? '0' : '10px'}; font-size:${isTicket ? '12px' : '14px'}; }
+            .head { display:flex; align-items:center; gap:14px; ${isTicket ? 'flex-direction:column; text-align:center; gap:4px;' : ''} border-bottom:2px solid #222; padding-bottom:10px; margin-bottom:10px; }
+            .logo { ${isTicket ? 'max-width:120px; max-height:70px;' : 'max-width:120px; max-height:90px;'} object-fit:contain; }
+            .cname { font-size:${isTicket ? '15px' : '20px'}; font-weight:bold; }
+            .muted { color:#555; font-size:${isTicket ? '11px' : '12px'}; line-height:1.45; }
+            .doc-title { text-align:${isTicket ? 'center' : 'right'}; }
+            .doc-title h2 { margin:0; font-size:${isTicket ? '13px' : '17px'}; letter-spacing:1px; }
+            .meta { ${isTicket ? 'text-align:center;' : 'display:flex; justify-content:space-between;'} margin:8px 0; font-size:${isTicket ? '11px' : '13px'}; color:#444; }
+            table { width:100%; border-collapse:collapse; margin-top:8px; }
+            th,td { padding:${isTicket ? '3px 2px' : '7px 8px'}; font-size:${isTicket ? '11px' : '13px'}; border-bottom:1px solid ${isTicket ? '#ccc' : '#ddd'}; text-align:left; }
+            th { background:${isTicket ? 'transparent' : '#f3f3f3'}; ${isTicket ? 'border-bottom:1px dashed #888;' : ''} }
+            td.r, th.r { text-align:right; }
+            tfoot td { font-weight:bold; font-size:${isTicket ? '13px' : '15px'}; border-top:2px solid #333; border-bottom:none; }
+            .footer-note { margin-top:16px; text-align:center; color:#666; font-size:${isTicket ? '11px' : '12px'}; font-style:italic; }
+        </style></head><body>
+        <div class="head">
+            ${c.logo ? `<img class="logo" src="${c.logo}">` : ''}
+            <div style="flex:1;">
+                <div class="cname">${escapeHtml(c.name || 'Mi Ferretería')}</div>
+                <div class="muted">${companyLines}</div>
+            </div>
+            <div class="doc-title"><h2>${title}</h2></div>
+        </div>
+        <div class="meta">
+            <span>Fecha: ${new Date().toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            <span>${comp.count} ${comp.count === 1 ? 'artículo' : 'artículos'}</span>
+        </div>
+        <table>
+            <thead><tr><th>Cód.</th><th>Descripción</th><th class="r">Cant.</th><th class="r">P. Unit.</th><th class="r">Subtotal</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+                ${discountRow}
+                <tr><td colspan="4" class="r">TOTAL</td><td class="r">${fmt(comp.finalTotal)}</td></tr>
+            </tfoot>
+        </table>
+        ${c.footer_note ? `<div class="footer-note">${escapeHtml(c.footer_note)}</div>` : ''}
+        ${!isTicket ? '<div class="footer-note">Documento no válido como factura.</div>' : ''}
+        </body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 350);
+}
+
 // Boot
 document.addEventListener('DOMContentLoaded', () => {
     initClock();
     initNavigation();
     initCheckout();
     initStockModal();
+    fetchCompany();   // precargar datos de la empresa para presupuestos/tiques
     initPOS();
 
     // Handle enter key in password field

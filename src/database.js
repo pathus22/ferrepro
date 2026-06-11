@@ -111,7 +111,25 @@ function initDB() {
             created_at DATETIME DEFAULT (datetime('now','localtime')),
             FOREIGN KEY (corridor_id) REFERENCES corridors(id)
         );
+
+        -- Datos de la ferretería (fila única id=1) para presupuestos / tiques / facturas
+        CREATE TABLE IF NOT EXISTS company_info (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            name TEXT,
+            cuit TEXT,
+            iva_condition TEXT,
+            address TEXT,
+            phone TEXT,
+            email TEXT,
+            logo TEXT,
+            footer_note TEXT
+        );
     `);
+
+    // Asegurar que exista la fila de configuración
+    if (!db.prepare('SELECT 1 FROM company_info WHERE id = 1').get()) {
+        db.prepare("INSERT INTO company_info (id, name, iva_condition) VALUES (1, 'Mi Ferretería', 'Responsable Inscripto')").run();
+    }
     console.log("Tablas inicializadas correctamente.");
 }
 

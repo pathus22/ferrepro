@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '6mb' })); // 6mb para permitir el logo en base64
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Registra un nombre en categories/providers si todavía no existe (auto-sync al guardar productos)
@@ -576,6 +576,33 @@ app.post('/api/corridors/:id/payments', (req, res) => {
         db.prepare('INSERT INTO corridor_payments (corridor_id, amount, method, note) VALUES (?, ?, ?, ?)')
             .run(req.params.id, amount, (method || 'efectivo'), (note || '').trim());
         res.json({ message: 'Pago registrado', balance: corridorBalance(req.params.id).balance });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===== DATOS DE LA EMPRESA (CONFIGURACIÓN) =====
+
+// Obtener los datos de la ferretería
+app.get('/api/company', (req, res) => {
+    try {
+        const row = db.prepare('SELECT * FROM company_info WHERE id = 1').get();
+        res.json(row || {});
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Guardar/actualizar los datos de la ferretería (fila única id=1)
+app.put('/api/company', (req, res) => {
+    try {
+        const { name, cuit, iva_condition, address, phone, email, logo, footer_note } = req.body;
+        db.prepare(`
+            UPDATE company_info SET
+                name = ?, cuit = ?, iva_condition = ?, address = ?,
+                phone = ?, email = ?, logo = ?, footer_note = ?
+            WHERE id = 1
+        `).run(
+            (name || '').trim(), (cuit || '').trim(), (iva_condition || '').trim(), (address || '').trim(),
+            (phone || '').trim(), (email || '').trim(), logo || '', (footer_note || '').trim()
+        );
+        res.json({ message: 'Datos guardados' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

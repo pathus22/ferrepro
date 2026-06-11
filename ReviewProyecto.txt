@@ -116,14 +116,18 @@ FASE 2 — VENTAS, FACTURACIÓN Y TICKET
   [x] Guardado de la venta en tabla `sales` y `sale_items` (POST /api/sales transaccional)
   [x] Descuento automático de stock al confirmar venta
   [x] Endpoint GET /api/sales (historial, opcional ?date=YYYY-MM-DD)
-  [ ] Asociar venta a un corredor/cliente (opcional) — schema soporta corridor_id, falta UI
-  [~] Comprobante tras cobrar: hoy toast de confirmación; falta PDF/ticket imprimible
+  [x] Asociar venta a un corredor (cuenta corriente desde el POS) — 2026-06-10
+  [~] Comprobante tras cobrar: presupuesto/tique imprimible desde el carrito (2026-06-11);
+      falta generar el tique automáticamente con el N° de venta tras cobrar
 
 [ FACTURACIÓN / TICKETS ]
-  [ ] Definir flujo de "Imprimir como presupuesto" (PDF generado server-side)
-  [ ] Template HTML/CSS del presupuesto (con logo, datos de la empresa, ítems, total)
-  [ ] Generación de PDF desde backend (librería puppeteer o pdfkit)
-  [ ] Impresión directa a impresora térmica genérica (formato 80mm)
+  [x] "Imprimir como presupuesto" — documento A4 imprimible/PDF desde el carrito (2026-06-11)
+  [x] Template HTML/CSS de presupuesto y tique con logo, datos de empresa, ítems, total
+  [x] Tique en formato angosto (~80mm) apto para impresora térmica
+  [x] Datos de la empresa configurables (vista Configuración + tabla company_info):
+      logo, razón social, CUIT, condición IVA, dirección, tel, email, nota al pie
+  [~] Generación de PDF: hoy vía ventana de impresión del navegador → "Guardar como PDF"
+      (sin librería); falta PDF server-side si se quiere automatizar
   [ ] Integración con Controlador Fiscal — PENDIENTE DE DEFINICIÓN
       (opciones: impresora local por COM/USB vs. webservice AFIP)
   [ ] Numeración de comprobantes (correlativa)
@@ -234,8 +238,9 @@ FASE 4 — ADMINISTRACIÓN Y FINANZAS
 
 [ SEGURIDAD Y CONFIGURACIÓN ]
   [ ] Contraseña admin configurable (hoy hardcodeada como "test")
-  [ ] Datos de la empresa configurables (nombre, CUIT, dirección, logo)
-      para usar en tickets y presupuestos
+  [x] Datos de la empresa configurables (nombre, CUIT, condición IVA, dirección,
+      teléfono, email, logo, nota al pie) — vista Configuración, usados en
+      presupuestos/tiques. Cada instalación = una ferretería adherida. (2026-06-11)
   [ ] Backup automático de la base de datos SQLite (diario o por evento)
   [ ] Recuperación ante errores de la DB
 
@@ -255,8 +260,8 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~21 ítems
 
   FASE 2 — Ventas y Facturación
-    Completados:  ~13 ítems (POS, roles y flujo de cobro completo)
-    Pendientes:   ~15 ítems
+    Completados:  ~18 ítems (POS, cobro, presupuesto/tique imprimible con datos empresa)
+    Pendientes:   ~10 ítems
 
   FASE 3 — Corredores, Stock y Pedidos
     Completados:  ~19 ítems (Stock + Pedidos + Corredores con cuenta corriente)
@@ -267,11 +272,11 @@ RESUMEN CUANTITATIVO
     Pendientes:   ~14 ítems
 
   Transversales
-    Completados:  ~9 ítems
-    Pendientes:   ~9 ítems
+    Completados:  ~10 ítems (incluye datos de empresa configurables)
+    Pendientes:   ~8 ítems
 
-  TOTAL GENERAL: ~73 completados / ~61 pendientes
-  Avance estimado: ~54% del sistema completo
+  TOTAL GENERAL: ~80 completados / ~54 pendientes
+  Avance estimado: ~60% del sistema completo
 
 --------------------------------------------------------------------------------
 PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
@@ -299,10 +304,15 @@ PRÓXIMOS PASOS RECOMENDADOS (orden de dependencias)
      → Desbloquea: carga masiva de catálogos de proveedores
      (Requiere: Excel de ejemplo del usuario para definir el mapeo de columnas)
 
-  7. Implementar generación de PDF del presupuesto/ticket de venta del POS
-     (el pedido a proveedor y la lista de precios ya tienen impresión; falta el POS)
+  7. [HECHO 2026-06-11] Presupuesto y tique imprimibles desde el POS (A4 + 80mm)
+     con encabezado de la empresa (logo, CUIT, condición IVA, dirección, etc.),
+     configurables en la vista Configuración (tabla company_info).
 
   8. Completar Finanzas (apertura/cierre de caja, gastos, cuentas a pagar) y
      Dashboard con estadísticas (ya hay datos de ventas reales en la DB)
+
+  9. Pendientes varios: importación de Excel (pedir Excel de ejemplo), backup
+     automático de la DB, generar el tique automáticamente tras cobrar con su N°,
+     integración fiscal (a definir), contraseña admin configurable.
 
 ================================================================================
